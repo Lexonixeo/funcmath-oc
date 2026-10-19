@@ -21,6 +21,7 @@ private:
     std::vector<Num> numbers_;
     std::vector<Num> original_;
     std::vector<std::vector<Num>> stack_;
+    std::vector<std::string> history_;
     bool tutorial_;
     bool completed_ = false;
 
@@ -34,6 +35,7 @@ private:
     void printHelp();
 
     void nums() const;
+    void printHistory() const;
     void restart();
     void goBack();
     void hint();

@@ -45,6 +45,12 @@ Num opMul(Num a, Num b) { return clampLD(static_cast<long double>(a) * b); }
 
 Num opAbs(Num a, Num) { return a < 0 ? -a : a; }
 
+// Специальные функции из раннего однофайлового прототипа. Там они были
+// «неизвестными» A и B; теперь доступны как обычные поведения, чтобы
+// сохранить старые уровни.
+Num opFive(Num, Num) { return 5; }  // игнорирует аргументы
+Num opNeg2(Num a, Num) { return clampLD(2.0L - static_cast<long double>(a)); }
+
 Num opMod(Num a, Num b) {
     if (b == 0 || b == -1) return 0;  // b == -1: остаток всегда 0
     Num m = b < 0 ? -b : b;
@@ -142,6 +148,7 @@ std::map<std::string, Op> buildOps() {
         {"and", opAnd},   {"or", opOr},     {"not", opNot},   {"xor", opXor},
         {"avg", opAvg},   {"sumr", opSumr}, {"subr", opSubr}, {"mulr", opMulr},
         {"divr", opDivr}, {"conc", opConc}, {"base", opBase}, {"round", opRound},
+        {"five", opFive}, {"neg2", opNeg2},
     };
 }
 

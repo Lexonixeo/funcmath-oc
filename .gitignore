@@ -17,6 +17,7 @@ funcmath-cpp/data/players/
 funcmath-cpp/data/lvlrate.dat
 
 # Редакторы / ОС
+.vscode/
 *.swp
 *~
 .DS_Store

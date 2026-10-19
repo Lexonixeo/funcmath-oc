@@ -57,6 +57,7 @@ void Level::printTutorial() {
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
+    std::cout << "Введите history, чтобы увидеть историю ходов." << std::endl;
     std::cout << "Введите reset, чтобы перезагрузить уровень." << std::endl;
     std::cout << "Введите exit, чтобы выйти из уровня.\n" << std::endl;
     tutorial_ = false;
@@ -70,10 +71,12 @@ void Level::printHelp() {
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
+    std::cout << "Введите history, чтобы увидеть историю ходов." << std::endl;
     std::cout << "Введите hint, чтобы получить подсказку." << std::endl;
     std::cout << "Введите calc {выражение}, чтобы посчитать выражение, не меняя набор." << std::endl;
     std::cout << "Введите back, чтобы откатить предыдущее выражение." << std::endl;
     std::cout << "Введите reset, чтобы перезагрузить уровень." << std::endl;
+    std::cout << "Введите clear (или cls), чтобы очистить экран." << std::endl;
     std::cout << "Введите exit, чтобы выйти из уровня.\n" << std::endl;
     tutorial_ = true;
 }
@@ -90,10 +93,19 @@ void Level::nums() const {
     std::cout << std::endl;
 }
 
+void Level::printHistory() const {
+    if (history_.empty()) {
+        std::cout << "(пока нет ходов)" << std::endl;
+        return;
+    }
+    for (const std::string& h : history_) std::cout << h << std::endl;
+}
+
 void Level::restart() {
     numbers_ = original_;
     stack_.clear();
     stack_.push_back(numbers_);
+    history_.clear();
     helper::clearScreen();
     start();
 }
@@ -105,6 +117,7 @@ void Level::goBack() {
     }
     stack_.pop_back();
     numbers_ = stack_.back();
+    if (!history_.empty()) history_.pop_back();
     nums();
 }
 
@@ -148,7 +161,15 @@ void Level::useFunction(const std::vector<std::string>& words) {
 
     Num result = function->use(args);
     numbers_.push_back(result);
-    std::cout << "= " << result << std::endl;
+    std::cout << "= " << result << "   (в наборе:";
+    for (Num v : numbers_) std::cout << " " << v;
+    std::cout << ")" << std::endl;
+
+    std::string record = name;
+    for (Num v : args) record += " " + std::to_string(v);
+    record += " = " + std::to_string(result);
+    history_.push_back(record);
+
     completed_ = (result == data_.answer);
     stack_.push_back(numbers_);
 }
@@ -204,6 +225,12 @@ void Level::hint() {
 }
 
 int Level::turn() {
+    // Если нужное число уже в наборе (например, после back/reset или в
+    // начальном наборе), уровень сразу пройден — как в старом прототипе.
+    if (std::find(numbers_.begin(), numbers_.end(), data_.answer) != numbers_.end()) {
+        completed_ = true;
+        return 0;
+    }
     std::cout << "[Level] Введите выражение: ";
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -219,12 +246,14 @@ int Level::turn() {
         return -1;
     } else if (first == "nums") {
         nums();
+    } else if (first == "history") {
+        printHistory();
     } else if (first == "reset") {
         restart();
     } else if (first == "help") {
         start();
         printHelp();
-    } else if (first == "clear") {
+    } else if (first == "clear" || first == "cls") {
         start();
     } else if (first == "hint") {
         hint();

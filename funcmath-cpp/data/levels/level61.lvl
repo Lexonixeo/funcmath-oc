@@ -1,0 +1,7 @@
+# func(math) level 61
+# Из старого прототипа: две скрытые функции и случайность.
+numbers -5 25 -125 625
+answer 6
+function A unknown five
+function B unknown neg2
+function rand

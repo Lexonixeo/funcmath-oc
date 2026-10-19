@@ -1,0 +1,6 @@
+# func(math) level 59
+# Из старого прототипа: сумма и скрытая B.
+numbers 6 7 5 4
+answer -9
+function sum
+function B unknown neg2

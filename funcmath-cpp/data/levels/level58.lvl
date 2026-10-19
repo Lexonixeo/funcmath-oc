@@ -1,0 +1,7 @@
+# func(math) level 58
+# Из старого прототипа: сумма, остаток и скрытая B.
+numbers -4 3 5 100 -101
+answer 0
+function sum
+function mod
+function B unknown neg2
