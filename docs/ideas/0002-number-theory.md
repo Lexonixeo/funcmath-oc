@@ -61,7 +61,7 @@ goal divisors 4
 
 ## Эскиз реализации
 
-- Добавить операции в `funcmath-cpp/src/Functions.cpp` и описания в
+- Добавить операции в `src/Functions.cpp` и описания в
   `data/functions.txt`.
 - Реализовать `gcd` через алгоритм Евклида, `digits` — циклом по основанию,
   `divcnt`/`divsum` — перебором до `sqrt(a)` (числа в игре небольшие).

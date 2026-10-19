@@ -65,8 +65,8 @@ int current_ = 0;
 
 ## Что затронет
 
-`funcmath-cpp/src/Level.{h,cpp}`, `funcmath-cpp/README.md`,
-возможно `funcmath-cpp/src/Player.cpp` (сохранение дерева).
+`src/Level.{h,cpp}`, `docs/game.md`,
+возможно `src/Player.cpp` (сохранение дерева).
 
 ## Риски
 

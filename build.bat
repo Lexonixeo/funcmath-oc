@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 rem Сборка func(math) через g++ (MinGW).
 setlocal
 

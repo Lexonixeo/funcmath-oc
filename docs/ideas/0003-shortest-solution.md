@@ -54,8 +54,8 @@ struct StateHash {
 
 ## Что затронет
 
-`funcmath-cpp/src/Solver.{h,cpp}`, `funcmath-cpp/src/main.cpp`,
-`funcmath-cpp/src/Level.cpp` (текст подсказки), `README.md`.
+`src/Solver.{h,cpp}`, `src/main.cpp`,
+`src/Level.cpp` (текст подсказки), `docs/game.md`.
 
 ## Риски
 

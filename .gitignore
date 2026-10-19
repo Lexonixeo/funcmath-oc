@@ -10,11 +10,10 @@ out/
 *.tmp
 *.log
 
-# Данные игроков и оценки (создаются во время игры)
+# Данные игроков, оценки и кэш решателя (создаются во время игры)
 data/players/
 data/lvlrate.dat
-funcmath-cpp/data/players/
-funcmath-cpp/data/lvlrate.dat
+data/cache/
 
 # Редакторы / ОС
 .vscode/

@@ -48,7 +48,7 @@
 
 ## Что затронет
 
-`funcmath-cpp/src/main.cpp`, новый `Validator.{h,cpp}` или
+`src/main.cpp`, новый `Validator.{h,cpp}` или
 `LevelStore.{h,cpp}`, `LevelGenerator.cpp`, `README.md`.
 
 ## Риски
