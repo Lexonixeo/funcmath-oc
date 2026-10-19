@@ -1,0 +1,6 @@
+# func(math) level 56
+# Финальный уровень: три хода.
+numbers 2 3 5 7
+answer 57
+function mul
+function sum

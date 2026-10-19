@@ -1,0 +1,7 @@
+# func(math) level 35
+numbers 3 7 3 7 3 7
+answer 17
+function avg
+function mod
+function mul
+function pow

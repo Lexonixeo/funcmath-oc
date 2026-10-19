@@ -1,0 +1,6 @@
+# func(math) level 47
+# Степень и вычитание.
+numbers 2 10 3
+answer 1021
+function pow
+function sub

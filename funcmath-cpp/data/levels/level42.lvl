@@ -1,0 +1,5 @@
+# func(math) level 42
+# Побитовое ИЛИ.
+numbers 12 10 5
+answer 15
+function or

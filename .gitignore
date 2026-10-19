@@ -1,0 +1,23 @@
+# Сборки
+*.exe
+*.o
+*.obj
+*.out
+build/
+out/
+
+# Временные файлы
+*.tmp
+*.log
+
+# Данные игроков и оценки (создаются во время игры)
+data/players/
+data/lvlrate.dat
+funcmath-cpp/data/players/
+funcmath-cpp/data/lvlrate.dat
+
+# Редакторы / ОС
+*.swp
+*~
+.DS_Store
+Thumbs.db

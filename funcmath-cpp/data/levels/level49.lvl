@@ -1,0 +1,6 @@
+# func(math) level 49
+# Две неизвестные функции: умножение и деление.
+numbers 8 3 2
+answer 12
+function A unknown mul
+function B unknown div

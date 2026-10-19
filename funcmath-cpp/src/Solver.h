@@ -1,0 +1,27 @@
+#pragma once
+// Поиск решения уровня (для подсказки и для проверки уровней).
+// Работает только со стабильными функциями (без rand/sumr/...).
+
+#include <string>
+#include <vector>
+
+#include "Function.h"
+
+namespace solver {
+
+struct Move {
+    std::string fn;
+    Num a = 0, b = 0, result = 0;
+};
+
+// Ищет последовательность ходов, приводящую к target.
+// Поиск ограничен числом узлов (nodeLimit) и временем (timeLimitMs),
+// чтобы всегда завершаться. false = решение не найдено или лимит исчерпан.
+bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
+           Num target, std::vector<Move>& moves,
+           long long nodeLimit = 60000, long long timeLimitMs = 700);
+
+// true, если в уровне есть нестабильные функции (rand и т.п.).
+bool hasUnstable(const std::vector<Fn>& functions);
+
+}  // namespace solver

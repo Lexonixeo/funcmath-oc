@@ -1,0 +1,5 @@
+# func(math) level 45
+# Конкатенация чисел.
+numbers 1 2 34
+answer 1234
+function conc

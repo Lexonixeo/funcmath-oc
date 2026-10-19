@@ -1,0 +1,6 @@
+# func(math) level 53
+# ИЛИ и исключающее ИЛИ.
+numbers 9 6 3
+answer 12
+function or
+function xor

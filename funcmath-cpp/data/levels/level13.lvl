@@ -1,0 +1,5 @@
+# func(math) level 13
+numbers -1 25 -4 35 9
+answer 26
+function mul
+function sum

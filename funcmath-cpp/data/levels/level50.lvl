@@ -1,0 +1,6 @@
+# func(math) level 50
+# Неизвестные сложение и умножение.
+numbers 5 7 2
+answer 24
+function A unknown sum
+function B unknown mul

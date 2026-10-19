@@ -1,0 +1,6 @@
+# func(math) level 54
+# Конкатенация, затем деление.
+numbers 1 2 4
+answer 3
+function conc
+function div

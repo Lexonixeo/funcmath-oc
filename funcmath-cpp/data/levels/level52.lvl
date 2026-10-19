@@ -1,0 +1,6 @@
+# func(math) level 52
+# Умножение и сложение.
+numbers 2 3 4 5
+answer 14
+function mul
+function sum

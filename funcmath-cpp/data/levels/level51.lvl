@@ -1,0 +1,6 @@
+# func(math) level 51
+# Побитовые операции в два шага.
+numbers 14 7 3
+answer 5
+function and
+function xor

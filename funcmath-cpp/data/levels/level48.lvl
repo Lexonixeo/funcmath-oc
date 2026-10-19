@@ -1,0 +1,6 @@
+# func(math) level 48
+# Первая встреча с неизвестными функциями.
+numbers 3 4 5
+answer 12
+function A unknown mul
+function B unknown sum

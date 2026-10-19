@@ -1,0 +1,6 @@
+# func(math) level 23
+numbers -2 145 18 987653
+answer 16
+function abs
+function div
+function mul

@@ -1,0 +1,6 @@
+# func(math) level 55
+# Неизвестные среднее арифметическое и умножение.
+numbers 4 8 2
+answer 6
+function A unknown avg
+function B unknown mul

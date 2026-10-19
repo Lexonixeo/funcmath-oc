@@ -1,0 +1,4 @@
+# Нормализация переводов строк: в репозитории храним LF.
+* text=auto
+*.bat text eol=crlf
+*.exe binary
