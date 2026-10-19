@@ -32,7 +32,7 @@ int runCheck(const std::string& dataDir, int onlyLevel, long long nodeLimit,
             levels.clear();
     }
     std::cout << "Проверка " << levels.size() << " уровней..." << std::endl;
-    int solvable = 0, unsolvable = 0, unstable = 0, broken = 0;
+    int solvable = 0, unsolvable = 0, randomLevels = 0, broken = 0;
     for (int n : levels) {
         LevelData data;
         std::string error;
@@ -41,11 +41,12 @@ int runCheck(const std::string& dataDir, int onlyLevel, long long nodeLimit,
             broken++;
             continue;
         }
-        if (solver::hasUnstable(data.functions)) {
-            std::cout << "  уровень " << n << ": содержит случайные функции — пропуск" << std::endl;
-            unstable++;
-            continue;
-        }
+        // Уровни со случайными функциями тоже проверяются: решатель перебирает
+        // все возможные исходы (см. fmath::outcomes).
+        const bool random = solver::hasUnstable(data.functions);
+        if (random) randomLevels++;
+        const char* mark = random ? " (случайные функции)" : "";
+
         std::vector<solver::Move> moves;
         auto t0 = std::chrono::steady_clock::now();
         bool found = solver::solve(data.numbers, data.functions, data.answer, moves,
@@ -54,17 +55,17 @@ int runCheck(const std::string& dataDir, int onlyLevel, long long nodeLimit,
                       std::chrono::steady_clock::now() - t0)
                       .count();
         if (found) {
-            std::cout << "  уровень " << n << ": решаем за " << moves.size()
+            std::cout << "  уровень " << n << mark << ": решаем за " << moves.size()
                       << " ход(ов) (" << ms << " мс)" << std::endl;
             solvable++;
         } else {
-            std::cout << "  уровень " << n << ": решение не найдено за " << ms
+            std::cout << "  уровень " << n << mark << ": решение не найдено за " << ms
                       << " мс (лимит или уровень нерешаем!)" << std::endl;
             unsolvable++;
         }
     }
     std::cout << "Итого: решаемо " << solvable << ", не найдено " << unsolvable
-              << ", со случайностью " << unstable << ", с ошибками " << broken << "." << std::endl;
+              << ", со случайностью " << randomLevels << ", с ошибками " << broken << "." << std::endl;
     return (unsolvable == 0 && broken == 0) ? 0 : 1;
 }
 

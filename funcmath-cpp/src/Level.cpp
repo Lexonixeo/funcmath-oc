@@ -183,10 +183,6 @@ void Level::calc(const std::vector<std::string>& words) {
 }
 
 void Level::hint() {
-    if (solver::hasUnstable(data_.functions)) {
-        std::cout << "= В этом уровне есть случайные функции, поэтому подсказка недоступна." << std::endl;
-        return;
-    }
     std::vector<solver::Move> moves;
     if (solver::solve(numbers_, data_.functions, data_.answer, moves)) {
         if (moves.empty()) {
@@ -194,8 +190,14 @@ void Level::hint() {
             return;
         }
         const solver::Move& m = moves.front();
-        std::cout << "= Подсказка: попробуйте  " << m.fn << " " << m.a << " " << m.b
-                  << "   (получится " << m.result << ")" << std::endl;
+        const Fn* f = findFunction(m.fn);
+        const bool random = f != nullptr && !f->isStable();
+        std::cout << "= Подсказка: попробуйте  " << m.fn << " " << m.a << " " << m.b;
+        if (random)
+            std::cout << "   (результат случайный — может понадобиться несколько попыток)";
+        else
+            std::cout << "   (получится " << m.result << ")";
+        std::cout << std::endl;
     } else {
         std::cout << "= Подсказку найти не удалось. Можно вернуться назад командой back или перезапустить уровень (reset)." << std::endl;
     }

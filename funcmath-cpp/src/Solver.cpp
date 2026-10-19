@@ -82,33 +82,45 @@ struct Search {
         if (dead.count(sig)) return false;
 
         const int n = static_cast<int>(nums.size());
+
+        // Применяет функцию к паре (i, j) с уже известным результатом c.
+        // Возвращает true, если решение найдено (тогда ход дописан в path).
+        auto tryResult = [&](int i, int j, const Fn& f, Num x, Num y, Num c) -> bool {
+            if (tooBig(c)) return false;
+            std::vector<Num> next;
+            next.reserve(nums.size() - 1);
+            for (int k = 0; k < n; ++k)
+                if (k != i && k != j) next.push_back(nums[k]);
+            next.push_back(c);
+            if (contains(next, target) || dfs(next)) {
+                path.push_back({f.name, x, y, c});
+                return true;
+            }
+            return false;
+        };
+
         for (int i = 0; i < n; ++i) {
             for (int j = i + 1; j < n; ++j) {
+                Num pairs[2][2] = {{nums[i], nums[j]}, {nums[j], nums[i]}};
                 for (const Fn& f : funcs) {
-                    if (!f.isStable()) continue;
-                    Num pairs[2][2] = {{nums[i], nums[j]}, {nums[j], nums[i]}};
                     for (int order = 0; order < 2; ++order) {
-                        Num c;
-                        try {
-                            c = f.use({pairs[order][0], pairs[order][1]});
-                        } catch (...) {
-                            continue;
+                        Num x = pairs[order][0], y = pairs[order][1];
+                        if (f.isStable()) {
+                            Num c;
+                            try {
+                                c = f.use({x, y});
+                            } catch (...) {
+                                continue;
+                            }
+                            if (tryResult(i, j, f, x, y, c)) return true;
+                            if (aborted) return false;
+                        } else {
+                            // Случайная функция: перебираем все возможные исходы.
+                            for (Num c : fmath::outcomes(f.behavior, x, y)) {
+                                if (tryResult(i, j, f, x, y, c)) return true;
+                                if (aborted) return false;
+                            }
                         }
-                        if (tooBig(c)) continue;
-                        std::vector<Num> next;
-                        next.reserve(nums.size() - 1);
-                        for (int k = 0; k < n; ++k)
-                            if (k != i && k != j) next.push_back(nums[k]);
-                        next.push_back(c);
-                        if (contains(next, target)) {
-                            path.push_back({f.name, pairs[order][0], pairs[order][1], c});
-                            return true;
-                        }
-                        if (dfs(next)) {
-                            path.push_back({f.name, pairs[order][0], pairs[order][1], c});
-                            return true;
-                        }
-                        if (aborted) return false;
                     }
                 }
             }

@@ -25,6 +25,12 @@ std::map<std::string, std::string>& descriptionMap() {
 // Ограничение на величины, чтобы избежать переполнений и UB.
 constexpr Num kLimit = 1000000000000000000LL;  // 1e18
 
+// Максимум значений, перебираемых за один вызов случайной функции.
+// Пока диапазоны в уровнях малы, перебор полный; для гигантских диапазонов
+// значения прореживаются, чтобы поиск не раздувался. Это единственное место,
+// которое надо поменять, если позже понадобится другая стратегия.
+constexpr Num kMaxOutcomes = 4096;
+
 Num clampLD(long double v) {
     if (v > static_cast<long double>(kLimit)) return kLimit;
     if (v < -static_cast<long double>(kLimit)) return -kLimit;
@@ -162,6 +168,63 @@ std::string describe(const std::string& name) {
 bool isStable(const std::string& name) {
     return !(name == "rand" || name == "sumr" || name == "subr" || name == "mulr" ||
              name == "divr");
+}
+
+std::vector<Num> outcomes(const std::string& name, Num a, Num b) {
+    std::vector<Num> result;
+
+    if (name == "rand") {
+        if (a > b) std::swap(a, b);
+        long double span = static_cast<long double>(b) - static_cast<long double>(a) + 1.0L;
+        if (span <= 0.0L) {
+            result.push_back(a);
+            return result;
+        }
+        if (span <= static_cast<long double>(kMaxOutcomes)) {
+            // Полный перебор диапазона [a, b].
+            result.reserve(static_cast<std::size_t>(span));
+            for (Num v = a;; ++v) {
+                result.push_back(v);
+                if (v == b) break;
+            }
+        } else {
+            result.reserve(static_cast<std::size_t>(kMaxOutcomes));
+            for (Num k = 0; k < kMaxOutcomes; ++k) {
+                long double t = static_cast<long double>(k) /
+                                static_cast<long double>(kMaxOutcomes - 1);
+                result.push_back(static_cast<Num>(
+                    static_cast<long double>(a) + t * (span - 1.0L)));
+            }
+        }
+        return result;
+    }
+
+    // Функции «с погрешностью»: базовое значение ± delta.
+    Num base = 0;
+    Num delta = 0;
+    if (name == "sumr") {
+        base = opSum(a, b);
+        delta = 10;
+    } else if (name == "subr") {
+        base = opSub(a, b);
+        delta = 10;
+    } else if (name == "mulr") {
+        base = opMul(a, b);
+        delta = 25;
+    } else if (name == "divr") {
+        base = opDiv(a, b);
+        delta = 25;
+    } else {
+        // Стабильная функция (или неизвестная): единственный результат.
+        auto it = ops().find(name);
+        if (it == ops().end()) return result;
+        result.push_back(it->second(a, b));
+        return result;
+    }
+    result.reserve(static_cast<std::size_t>(2 * delta + 1));
+    for (Num k = -delta; k <= delta; ++k)
+        result.push_back(clampLD(static_cast<long double>(base) + k));
+    return result;
 }
 
 Num randBetween(Num a, Num b) {

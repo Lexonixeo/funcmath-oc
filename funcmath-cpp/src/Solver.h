@@ -1,6 +1,8 @@
 #pragma once
 // Поиск решения уровня (для подсказки и для проверки уровней).
-// Работает только со стабильными функциями (без rand/sumr/...).
+// Работает и со случайными функциями (rand/sumr/subr/mulr/divr): их возможные
+// результаты перебираются (см. fmath::outcomes), поэтому решение считается
+// найденным, если оно достижимо при каком-то исходе случайности.
 
 #include <string>
 #include <vector>
@@ -19,7 +21,7 @@ struct Move {
 // чтобы всегда завершаться. false = решение не найдено или лимит исчерпан.
 bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
            Num target, std::vector<Move>& moves,
-           long long nodeLimit = 60000, long long timeLimitMs = 700);
+           long long nodeLimit = 200000, long long timeLimitMs = 1000);
 
 // true, если в уровне есть нестабильные функции (rand и т.п.).
 bool hasUnstable(const std::vector<Fn>& functions);

@@ -25,6 +25,12 @@ std::string describe(const std::string& name);
 // Стабильна ли функция (детерминирована). rand/sumr/subr/mulr/divr — нет.
 bool isStable(const std::string& name);
 
+// Возможные результаты функции над парой (a, b) — для перебора случайности.
+// Для стабильной функции возвращается один элемент; для rand/sumr/subr/mulr/divr —
+// весь диапазон возможных значений (полный перебор; см. замечание в Functions.cpp).
+// Стратегию перебора можно заменить в одном месте, не трогая решатель.
+std::vector<Num> outcomes(const std::string& name, Num a, Num b);
+
 // Случайное целое в [min(a,b), max(a,b)] включительно.
 Num randBetween(Num a, Num b);
 
