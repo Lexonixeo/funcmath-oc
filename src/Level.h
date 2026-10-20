@@ -40,8 +40,14 @@ private:
     void goBack();
     void hint();
 
-    bool multisetContains(const std::vector<Num>& args) const;
-    void useFunction(const std::vector<std::string>& words);
+    // Рекурсивно разбирает префиксное выражение. consumeFromSet=true —
+    // аргументы-числа берутся из pool и удаляются из него; false — числа
+    // создаются по literalType (режим calc).
+    bool evalExpression(const std::vector<std::string>& words, std::size_t& pos,
+                        bool consumeFromSet, std::vector<Num>& pool,
+                        ValueType literalType, std::vector<Num>& result,
+                        std::string& error) const;
+    void applyExpression(const std::vector<std::string>& words);
     void calc(const std::vector<std::string>& words);
 
     int turn();  // -1 — выход из уровня

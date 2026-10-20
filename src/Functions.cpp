@@ -247,6 +247,11 @@ std::map<std::string, Op> buildOps() {
 const std::vector<std::string> kGenerationPool = {
     "sum", "sub", "mul", "div", "mod", "abs", "pow", "avg", "and", "or", "xor", "conc"};
 
+bool isUnstableName(const std::string& name) {
+    return name == "rand" || name == "sumr" || name == "subr" || name == "mulr" ||
+           name == "divr";
+}
+
 }  // namespace
 
 const std::map<std::string, Op>& ops() {
@@ -265,11 +270,12 @@ std::string describe(const std::string& name) {
 }
 
 bool isStable(const std::string& name) {
-    return !(name == "rand" || name == "sumr" || name == "subr" || name == "mulr" ||
-             name == "divr");
+    return !isUnstableName(name);
 }
 
-std::vector<Num> outcomes(const std::string& name, Num a, Num b) {
+// Возможные исходы бинарной функции. Используется реестром для случайных
+// функций; для стабильных реестр вызывает apply().
+std::vector<Num> binaryOutcomes(const std::string& name, Num a, Num b) {
     std::vector<Num> result;
     ValueType type = commonType(a, b);
 
@@ -337,6 +343,130 @@ std::vector<Num> outcomes(const std::string& name, Num a, Num b) {
         result.push_back(Value::of(type, candidate));
     }
     return result;
+}
+
+namespace {
+
+bool matchesSignature(const Signature& signature, const std::vector<Num>& args) {
+    if (signature.args.size() != args.size()) return false;
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        if (signature.args[i] == ValueType::Natural && !args[i].isNatural())
+            return false;
+        // Integer принимает и natural: это расширяющее преобразование.
+    }
+    return true;
+}
+
+bool matchesAny(const FunctionSpec& spec, const std::vector<Num>& args) {
+    for (const Signature& signature : spec.signatures)
+        if (matchesSignature(signature, args)) return true;
+    return false;
+}
+
+std::vector<Num> factorize(const Num& number) {
+    long long value = number.asLongLong();
+    if (value < 0) throw std::domain_error("primes: отрицательное число");
+    std::vector<Num> result;
+    if (value < 2) return result;
+    for (long long prime = 2; prime <= value / prime; ++prime) {
+        while (value % prime == 0) {
+            result.push_back(Value::of(number.type(), prime));
+            value /= prime;
+        }
+    }
+    if (value > 1) result.push_back(Value::of(number.type(), value));
+    return result;
+}
+
+std::map<std::string, FunctionSpec> buildRegistry() {
+    std::map<std::string, FunctionSpec> result;
+
+    std::vector<Signature> binarySignatures = {
+        Signature{{ValueType::Natural, ValueType::Natural}},
+        Signature{{ValueType::Integer, ValueType::Integer}},
+    };
+
+    for (const auto& entry : buildOps()) {
+        FunctionSpec spec;
+        spec.signatures = binarySignatures;
+        spec.stable = !isUnstableName(entry.first);
+        Op op = entry.second;
+        spec.apply = [op](const std::vector<Num>& args) {
+            if (args.size() != 2)
+                throw std::domain_error("функция ожидает 2 аргумента");
+            return std::vector<Num>{op(args[0], args[1])};
+        };
+        if (!spec.stable) {
+            std::string name = entry.first;
+            spec.allOutcomes = [name](const std::vector<Num>& args) {
+                if (args.size() != 2)
+                    throw std::domain_error("функция ожидает 2 аргумента");
+                std::vector<std::vector<Num>> all;
+                for (const Num& value : binaryOutcomes(name, args[0], args[1]))
+                    all.push_back({value});
+                return all;
+            };
+        }
+        result.emplace(entry.first, std::move(spec));
+    }
+
+    FunctionSpec primes;
+    primes.signatures = {
+        Signature{{ValueType::Natural}},
+        Signature{{ValueType::Integer}},
+    };
+    primes.stable = true;
+    primes.apply = [](const std::vector<Num>& args) {
+        if (args.size() != 1)
+            throw std::domain_error("primes ожидает 1 аргумент");
+        return factorize(args[0]);
+    };
+    result.emplace("primes", std::move(primes));
+
+    return result;
+}
+
+}  // namespace
+
+int FunctionSpec::arity() const {
+    if (signatures.empty()) return 0;
+    return static_cast<int>(signatures.front().args.size());
+}
+
+const std::map<std::string, FunctionSpec>& registry() {
+    static const std::map<std::string, FunctionSpec> functions = buildRegistry();
+    return functions;
+}
+
+const FunctionSpec* findSpec(const std::string& name) {
+    const auto& functions = registry();
+    auto it = functions.find(name);
+    return it == functions.end() ? nullptr : &it->second;
+}
+
+bool hasFunction(const std::string& name) { return findSpec(name) != nullptr; }
+
+int functionArity(const std::string& name) {
+    const FunctionSpec* spec = findSpec(name);
+    return spec == nullptr ? 2 : spec->arity();
+}
+
+std::vector<Num> apply(const std::string& name, const std::vector<Num>& args) {
+    const FunctionSpec* spec = findSpec(name);
+    if (spec == nullptr) throw std::runtime_error("неизвестная функция: " + name);
+    if (!matchesAny(*spec, args))
+        throw std::domain_error("неподходящие аргументы для функции " + name);
+    return spec->apply(args);
+}
+
+std::vector<std::vector<Num>> outcomes(const std::string& name,
+                                       const std::vector<Num>& args) {
+    const FunctionSpec* spec = findSpec(name);
+    if (spec == nullptr) throw std::runtime_error("неизвестная функция: " + name);
+    if (!matchesAny(*spec, args))
+        throw std::domain_error("неподходящие аргументы для функции " + name);
+    if (spec->allOutcomes) return spec->allOutcomes(args);
+    return {spec->apply(args)};
 }
 
 long long randBetween(long long a, long long b) {

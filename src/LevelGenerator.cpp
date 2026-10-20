@@ -72,7 +72,14 @@ LevelData generateRandom(int difficulty) {
             if (randInt(0, 1) == 1) std::swap(a, b);
             const Fn& f = functions[randInt(0, static_cast<int>(functions.size()) - 1)];
             if (!f.isStable()) continue;
-            Num c = f.use({a, b});
+            std::vector<Num> results;
+            try {
+                results = f.use({a, b});
+            } catch (...) {
+                continue;
+            }
+            if (results.empty()) continue;
+            Num c = results.front();
             // удаляем i и j
             std::vector<Num> next;
             next.reserve(work.size() - 1);
@@ -101,7 +108,7 @@ LevelData generateRandom(int difficulty) {
 void authorLevel(const std::string& dataDir) {
     std::cout << "=== Создание нового уровня ===" << std::endl;
     std::cout << "Доступные функции:";
-    for (const auto& kv : fmath::ops()) std::cout << " " << kv.first;
+    for (const auto& kv : fmath::registry()) std::cout << " " << kv.first;
     std::cout << std::endl;
 
     std::string line;
@@ -138,7 +145,7 @@ void authorLevel(const std::string& dataDir) {
 
     std::vector<Fn> functions;
     for (const std::string& name : known) {
-        if (fmath::ops().count(name) == 0) {
+        if (!fmath::hasFunction(name)) {
             std::cout << "Предупреждение: функции '" << name << "' нет, пропускаю." << std::endl;
             continue;
         }
@@ -153,7 +160,7 @@ void authorLevel(const std::string& dataDir) {
         std::cout << "Какую известную функцию выполняет " << unknownNames[i] << "? ";
         std::getline(std::cin, line);
         std::vector<std::string> w = helper::wordsFromString(line);
-        if (w.empty() || fmath::ops().count(w[0]) == 0) {
+        if (w.empty() || !fmath::hasFunction(w[0])) {
             std::cout << "Некорректно, пропускаю " << unknownNames[i] << "." << std::endl;
             continue;
         }

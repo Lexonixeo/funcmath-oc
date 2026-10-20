@@ -1,34 +1,34 @@
 #include "Function.h"
 
-#include <stdexcept>
+#include <string>
 
 std::string unknownDescription(const std::string& name, int numberOfArgs) {
-    static const char* values[] = {"a", "b", "c", "d", "e", "f", "g",
-                                   "h", "i", "j", "k", "l", "m", "n", "o"};
-    std::string sb = name;
-    sb += "(";
+    std::string result = name + "(";
     for (int i = 0; i < numberOfArgs; ++i) {
-        sb += values[i];
-        if (i != numberOfArgs - 1) sb += ", ";
+        if (i < 26) {
+            result += static_cast<char>('a' + i);
+        } else {
+            result += "x" + std::to_string(i);
+        }
+        if (i != numberOfArgs - 1) result += ", ";
     }
-    sb += ") - неизвестная функция";
-    return sb;
+    result += ") - неизвестная функция";
+    return result;
 }
 
-Num Fn::use(const std::vector<Num>& args) const {
-    const auto& registry = fmath::ops();
-    auto it = registry.find(behavior);
-    if (it == registry.end()) throw std::runtime_error("unknown function behavior: " + behavior);
-    Num a = args.size() > 0 ? args[0] : 0;
-    Num b = args.size() > 1 ? args[1] : 0;
-    return it->second(a, b);
+std::vector<Num> Fn::use(const std::vector<Num>& args) const {
+    return fmath::apply(behavior, args);
+}
+
+std::vector<std::vector<Num>> Fn::outcomes(const std::vector<Num>& args) const {
+    return fmath::outcomes(behavior, args);
 }
 
 Fn makeKnownFunction(const std::string& name) {
     Fn f;
     f.name = name;
     f.behavior = name;
-    f.numberOfArgs = 2;
+    f.numberOfArgs = fmath::functionArity(name);
     f.description = fmath::describe(name);
     return f;
 }
@@ -37,7 +37,7 @@ Fn makeUnknownFunction(const std::string& name, const std::string& behavior) {
     Fn f;
     f.name = name;
     f.behavior = behavior;
-    f.numberOfArgs = 2;
+    f.numberOfArgs = fmath::functionArity(behavior);
     f.description = unknownDescription(name, f.numberOfArgs);
     return f;
 }

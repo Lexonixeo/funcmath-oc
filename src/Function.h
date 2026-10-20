@@ -3,6 +3,9 @@
 // Функция может быть "известной" (описание из data/functions.txt) или
 // "неизвестной" (A, B, C...): игрок видит только то, что это какая-то
 // функция, а её поведение = одна из простейших функций.
+//
+// Арность и поведение берутся из fmath::registry(). Функция может возвращать
+// несколько значений (например, primes).
 
 #include <string>
 #include <vector>
@@ -12,10 +15,11 @@
 struct Fn {
     std::string name;         // имя, которое вводит игрок (sum, A, B, ...)
     std::string description;  // строка для показа игроку
-    std::string behavior;     // ключ в fmath::ops(), что реально считается
+    std::string behavior;     // ключ в fmath::registry(), что реально считается
     int numberOfArgs = 2;
 
-    Num use(const std::vector<Num>& args) const;
+    std::vector<Num> use(const std::vector<Num>& args) const;
+    std::vector<std::vector<Num>> outcomes(const std::vector<Num>& args) const;
     bool isStable() const { return fmath::isStable(behavior); }
 };
 

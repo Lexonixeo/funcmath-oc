@@ -3,18 +3,14 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "Helper.h"
 #include "Solver.h"
 
 namespace {
-
-bool take(std::vector<Num>& v, const Num& value) {
-    auto it = std::find(v.begin(), v.end(), value);
-    if (it == v.end()) return false;
-    v.erase(it);
-    return true;
-}
 
 bool allSameType(const std::vector<Num>& values, ValueType type) {
     for (const Num& value : values)
@@ -23,8 +19,18 @@ bool allSameType(const std::vector<Num>& values, ValueType type) {
 }
 
 ValueType defaultType(const std::vector<Num>& values) {
-    if (!values.empty() && allSameType(values, values.front().type())) return values.front().type();
+    if (!values.empty() && allSameType(values, values.front().type()))
+        return values.front().type();
     return ValueType::Integer;
+}
+
+std::string joinWords(const std::vector<std::string>& words, std::size_t from = 0) {
+    std::string result;
+    for (std::size_t i = from; i < words.size(); ++i) {
+        if (!result.empty()) result += " ";
+        result += words[i];
+    }
+    return result;
 }
 
 }  // namespace
@@ -43,9 +49,9 @@ const Fn* Level::findFunction(const std::string& name) const {
 
 void Level::printNumbers() const {
     std::cout << "У вас есть ограниченный набор чисел:" << std::endl;
-    const bool mixed = !data_.numbers.empty() &&
-                       !(allSameType(data_.numbers, ValueType::Integer) ||
-                         allSameType(data_.numbers, ValueType::Natural));
+    const bool mixed = !numbers_.empty() &&
+                       !(allSameType(numbers_, ValueType::Integer) ||
+                         allSameType(numbers_, ValueType::Natural));
     for (const Num& n : numbers_) {
         std::cout << n.str();
         if (mixed) std::cout << "(" << n.typeName() << ")";
@@ -75,10 +81,14 @@ void Level::printHeader() const {
 }
 
 void Level::printTutorial() {
-    std::cout << "Используя функцию над двумя числами, вы забираете эти два числа из набора и в набор добавляется результат функции." << std::endl;
-    std::cout << "Запись выражения происходит так:   func a b    / это выполнение функции func над параметрами a и b." << std::endl;
-    std::cout << "Пример одного из выражений:        sum 1 3     / удалит из набора числа 1 и 3 и добавит в него 4." << std::endl;
-    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n" << std::endl;
+    std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
+              << std::endl;
+    std::cout << "Запись выражения: func a b    / например, sum 1 3." << std::endl;
+    std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
+    std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
+              << std::endl;
+    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n"
+              << std::endl;
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
@@ -89,16 +99,21 @@ void Level::printTutorial() {
 }
 
 void Level::printHelp() {
-    std::cout << "Используя функцию над двумя числами, вы забираете эти два числа из набора и в набор добавляется результат функции." << std::endl;
-    std::cout << "Запись выражения происходит так:   func a b    / это выполнение функции func над параметрами a и b." << std::endl;
-    std::cout << "Пример одного из выражений:        sum 1 3     / удалит из набора числа 1 и 3 и добавит в него 4." << std::endl;
-    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n" << std::endl;
+    std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
+              << std::endl;
+    std::cout << "Запись выражения: func a b    / например, sum 1 3." << std::endl;
+    std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
+    std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
+              << std::endl;
+    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n"
+              << std::endl;
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
     std::cout << "Введите history, чтобы увидеть историю ходов." << std::endl;
     std::cout << "Введите hint, чтобы получить подсказку." << std::endl;
-    std::cout << "Введите calc {выражение}, чтобы посчитать выражение, не меняя набор." << std::endl;
+    std::cout << "Введите calc {выражение}, чтобы посчитать выражение, не меняя набор."
+              << std::endl;
     std::cout << "Введите back, чтобы откатить предыдущее выражение." << std::endl;
     std::cout << "Введите reset, чтобы перезагрузить уровень." << std::endl;
     std::cout << "Введите clear (или cls), чтобы очистить экран." << std::endl;
@@ -131,6 +146,7 @@ void Level::restart() {
     stack_.clear();
     stack_.push_back(numbers_);
     history_.clear();
+    completed_ = false;
     helper::clearScreen();
     start();
 }
@@ -143,67 +159,105 @@ void Level::goBack() {
     stack_.pop_back();
     numbers_ = stack_.back();
     if (!history_.empty()) history_.pop_back();
+    completed_ = false;
     nums();
 }
 
-bool Level::multisetContains(const std::vector<Num>& args) const {
-    std::vector<Num> pool = numbers_;
-    for (Num a : args)
-        if (!take(pool, a)) return false;
-    return true;
-}
-
-void Level::useFunction(const std::vector<std::string>& words) {
-    const std::string& name = words[0];
-    const Fn* function = findFunction(name);
-    if (function == nullptr) return;
-    int args_count = function->numberOfArgs;
-
-    if (static_cast<int>(words.size()) - 1 < args_count) {
-        std::cout << "= Недостаточно аргументов! Введите выражение заново." << std::endl;
-        return;
-    }
-    if (static_cast<int>(words.size()) - 1 > args_count) {
-        std::cout << "= Избыток аргументов! Введите выражение заново." << std::endl;
-        return;
+bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& pos,
+                           bool consumeFromSet, std::vector<Num>& pool,
+                           ValueType literalType, std::vector<Num>& result,
+                           std::string& error) const {
+    if (pos >= words.size()) {
+        error = "недостаточно аргументов!";
+        return false;
     }
 
-    // Аргументы ищем в текущем наборе: так сохраняется тип каждого числа.
-    std::vector<Num> args;
-    std::vector<Num> pool = numbers_;
-    for (int i = 0; i < args_count; ++i) {
-        long long value = 0;
-        if (!helper::parseInt(words[i + 1], value)) {
-            std::cout << "= Неверные аргументы: должны быть числа! Введите выражение заново." << std::endl;
-            return;
+    const std::string& token = words[pos];
+    const Fn* function = findFunction(token);
+    if (function != nullptr) {
+        ++pos;
+        std::vector<Num> args;
+        for (int i = 0; i < function->numberOfArgs; ++i) {
+            std::vector<Num> part;
+            if (!evalExpression(words, pos, consumeFromSet, pool, literalType, part,
+                                error))
+                return false;
+            args.insert(args.end(), part.begin(), part.end());
         }
+        if (static_cast<int>(args.size()) != function->numberOfArgs) {
+            error = "функция " + function->name + " ожидает " +
+                    std::to_string(function->numberOfArgs) + " аргумент(ов), получено " +
+                    std::to_string(args.size()) + "!";
+            return false;
+        }
+        try {
+            result = function->use(args);
+        } catch (const std::exception& e) {
+            error = e.what();
+            return false;
+        }
+        return true;
+    }
+
+    long long value = 0;
+    if (!helper::parseInt(token, value)) {
+        error = "не число и не функция: " + token;
+        return false;
+    }
+
+    if (consumeFromSet) {
         auto it = std::find_if(pool.begin(), pool.end(),
                                [value](const Num& n) { return n.asLongLong() == value; });
         if (it == pool.end()) {
-            std::cout << "= Неверные аргументы: какие-то числа не существуют в наборе! Введите выражение заново." << std::endl;
-            return;
+            error = "числа " + token + " нет в наборе!";
+            return false;
         }
-        args.push_back(*it);
+        result = {*it};
         pool.erase(it);
+    } else {
+        if (literalType == ValueType::Natural && value < 0) {
+            error = "в natural-выражении нельзя использовать отрицательные числа";
+            return false;
+        }
+        result = {Value::of(literalType, value)};
     }
+    ++pos;
+    return true;
+}
 
-    Num result;
-    try {
-        result = function->use(args);
-    } catch (const std::exception& e) {
-        std::cout << "= " << e.what() << std::endl;
+void Level::applyExpression(const std::vector<std::string>& words) {
+    std::vector<Num> pool = numbers_;
+    std::size_t pos = 0;
+    std::vector<Num> result;
+    std::string error;
+    if (!evalExpression(words, pos, true, pool, defaultType(numbers_), result, error)) {
+        std::cout << "= " << error << std::endl;
+        return;
+    }
+    if (pos != words.size()) {
+        std::cout << "= Лишние аргументы! Введите выражение заново." << std::endl;
         return;
     }
 
-    numbers_ = pool;
-    numbers_.push_back(result);
-    std::cout << "= " << result.str() << "   (в наборе:";
-    for (const Num& v : numbers_) std::cout << " " << v.str();
+    numbers_ = std::move(pool);
+    numbers_.insert(numbers_.end(), result.begin(), result.end());
+
+    std::cout << "=";
+    if (result.empty()) {
+        std::cout << " (пусто)";
+    } else {
+        for (const Num& value : result) std::cout << " " << value.str();
+    }
+    std::cout << "   (в наборе:";
+    for (const Num& value : numbers_) std::cout << " " << value.str();
     std::cout << ")" << std::endl;
 
-    std::string record = name;
-    for (const Num& v : args) record += " " + v.str();
-    record += " = " + result.str();
+    std::string record = joinWords(words) + " =";
+    if (result.empty()) {
+        record += " (пусто)";
+    } else {
+        for (const Num& value : result) record += " " + value.str();
+    }
     history_.push_back(record);
 
     completed_ = std::find(numbers_.begin(), numbers_.end(), data_.answer) != numbers_.end();
@@ -211,44 +265,25 @@ void Level::useFunction(const std::vector<std::string>& words) {
 }
 
 void Level::calc(const std::vector<std::string>& words) {
-    const std::string& name = words[1];
-    const Fn* function = findFunction(name);
-    if (function == nullptr) {
-        std::cout << "= Такой функции у нас нет :(" << std::endl;
+    std::size_t pos = 1;
+    std::vector<Num> pool;
+    std::vector<Num> result;
+    std::string error;
+    if (!evalExpression(words, pos, false, pool, defaultType(numbers_), result, error)) {
+        std::cout << "= " << error << std::endl;
         return;
     }
-    int args_count = function->numberOfArgs;
-
-    if (static_cast<int>(words.size()) - 2 < args_count) {
-        std::cout << "= Недостаточно аргументов! Введите выражение заново." << std::endl;
+    if (pos != words.size()) {
+        std::cout << "= Лишние аргументы! Введите выражение заново." << std::endl;
         return;
     }
-    if (static_cast<int>(words.size()) - 2 > args_count) {
-        std::cout << "= Избыток аргументов! Введите выражение заново." << std::endl;
-        return;
+    std::cout << "=";
+    if (result.empty()) {
+        std::cout << " (пусто)";
+    } else {
+        for (const Num& value : result) std::cout << " " << value.str();
     }
-
-    ValueType type = defaultType(numbers_);
-    std::vector<Num> args;
-    for (int i = 0; i < args_count; ++i) {
-        long long value = 0;
-        if (!helper::parseInt(words[i + 2], value)) {
-            std::cout << "= Неверные аргументы: должны быть числа! Введите выражение заново." << std::endl;
-            return;
-        }
-        if (type == ValueType::Natural && value < 0) {
-            std::cout << "= В natural-уровне нельзя использовать отрицательные числа." << std::endl;
-            return;
-        }
-        args.push_back(Value::of(type, value));
-    }
-
-    try {
-        Num result = function->use(args);
-        std::cout << "= " << result.str() << " (без изменения набора)" << std::endl;
-    } catch (const std::exception& e) {
-        std::cout << "= " << e.what() << std::endl;
-    }
+    std::cout << " (без изменения набора)" << std::endl;
 }
 
 void Level::hint() {
@@ -258,14 +293,22 @@ void Level::hint() {
             std::cout << "= Нужное число уже есть в наборе!" << std::endl;
             return;
         }
-        const solver::Move& m = moves.front();
-        const Fn* f = findFunction(m.fn);
-        const bool random = f != nullptr && !f->isStable();
-        std::cout << "= Подсказка: попробуйте  " << m.fn << " " << m.a.str() << " " << m.b.str();
-        if (random)
+        const solver::Move& move = moves.front();
+        const Fn* function = findFunction(move.fn);
+        const bool random = function != nullptr && !function->isStable();
+        std::cout << "= Подсказка: попробуйте  " << move.fn;
+        for (const Num& arg : move.args) std::cout << " " << arg.str();
+        if (random) {
             std::cout << "   (результат случайный — может понадобиться несколько попыток)";
-        else
-            std::cout << "   (получится " << m.result.str() << ")";
+        } else {
+            std::cout << "   (получится";
+            if (move.results.empty()) {
+                std::cout << " пусто";
+            } else {
+                for (const Num& value : move.results) std::cout << " " << value.str();
+            }
+            std::cout << ")";
+        }
         std::cout << std::endl;
     } else {
         std::cout << "= Подсказку найти не удалось. Можно вернуться назад командой back или перезапустить уровень (reset)." << std::endl;
@@ -308,8 +351,6 @@ int Level::turn() {
     } else if (first == "calc") {
         if (words.size() < 2) {
             std::cout << "= Недостаточно аргументов! Введите выражение заново." << std::endl;
-        } else if (findFunction(words[1]) == nullptr) {
-            std::cout << "= Такой функции у нас нет :(" << std::endl;
         } else {
             calc(words);
         }
@@ -318,7 +359,7 @@ int Level::turn() {
     } else if (findFunction(first) == nullptr) {
         std::cout << "= Такой функции/команды у нас нет :( Введите help, чтобы вспомнить существующие команды." << std::endl;
     } else {
-        useFunction(words);
+        applyExpression(words);
     }
     return 0;
 }
