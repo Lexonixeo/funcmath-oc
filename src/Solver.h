@@ -22,7 +22,7 @@ struct Move {
 // чтобы всегда завершаться. false = решение не найдено или лимит исчерпан.
 bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
            Num target, std::vector<Move>& moves,
-           long long nodeLimit = 200000, long long timeLimitMs = 1000);
+           long long nodeLimit = 1000000, long long timeLimitMs = 1000);
 
 // true, если в уровне есть нестабильные функции (rand и т.п.).
 bool hasUnstable(const std::vector<Fn>& functions);

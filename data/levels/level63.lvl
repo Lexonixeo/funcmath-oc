@@ -1,0 +1,8 @@
+# func(math) level 63
+# Прототип: уровень 1 «1+1=2»
+# Авторские подсказки: Введите sum 1 1
+
+number natural 1
+number natural 1
+answer natural 2
+function sum

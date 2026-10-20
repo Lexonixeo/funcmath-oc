@@ -1,0 +1,9 @@
+# func(math) level 75
+# Прототип: уровень 13 «Или бывают?»
+
+number natural 2
+number natural 3
+number natural 5
+answer natural 1
+function div
+function mul

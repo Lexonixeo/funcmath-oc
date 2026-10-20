@@ -1,0 +1,16 @@
+# func(math) level 69
+# Прототип: уровень 7 «Почти все циферки»
+# Авторские подсказки: Воспользуйтесь принципом крайнего | Попробуйте начать суммирование с максимального числа
+
+number natural 1
+number natural 2
+number natural 3
+number natural 4
+number natural 5
+number natural 6
+number natural 7
+number natural 8
+number natural 9
+answer natural 31
+function sub
+function sum

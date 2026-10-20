@@ -1,0 +1,8 @@
+# func(math) level 67
+# Прототип: уровень 5 «Мне нужны две овцы»
+# Авторские подсказки: Введите sub 5 2
+
+number natural 2
+number natural 5
+answer natural 3
+function sub

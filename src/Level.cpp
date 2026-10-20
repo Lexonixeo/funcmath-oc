@@ -177,7 +177,9 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
     if (function != nullptr) {
         ++pos;
         std::vector<Num> args;
-        for (int i = 0; i < function->numberOfArgs; ++i) {
+        // Один вложенный вызов может вернуть несколько значений и заполнить
+        // сразу несколько аргументов родителя, например mul primes 77.
+        while (static_cast<int>(args.size()) < function->numberOfArgs) {
             std::vector<Num> part;
             if (!evalExpression(words, pos, consumeFromSet, pool, literalType, part,
                                 error))

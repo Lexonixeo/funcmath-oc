@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
 
     bool author = false, check = false;
     int onlyLevel = -1;
-    long long nodeLimit = 200000, timeLimitMs = 1000;
+    long long nodeLimit = 1000000, timeLimitMs = 1000;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
         long long v;

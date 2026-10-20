@@ -1,0 +1,9 @@
+# func(math) level 64
+# Прототип: уровень 2 «Натуральные числа - что это?»
+# Авторские подсказки: 7+5 = 12
+
+number natural 3
+number natural 4
+number natural 5
+answer natural 12
+function sum

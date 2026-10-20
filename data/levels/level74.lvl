@@ -1,0 +1,10 @@
+# func(math) level 74
+# Прототип: уровень 12 «Лишние не бывают...»
+
+number natural 6
+number natural 4
+number natural 7
+number natural 100
+answer natural 8
+function div
+function sum

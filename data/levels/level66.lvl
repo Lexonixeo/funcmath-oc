@@ -1,0 +1,10 @@
+# func(math) level 66
+# Прототип: уровень 4 «ЦИФРА НОЛЬ???»
+# Авторские подсказки: Одно число здесь лишнее. | Уберите число 23.
+
+number natural 23
+number natural 33
+number natural 39
+number natural 29
+answer natural 101
+function sum

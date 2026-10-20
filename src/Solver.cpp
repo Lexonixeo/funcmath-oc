@@ -81,7 +81,7 @@ struct Search {
     // решение найдено.
     bool tryResults(const std::vector<Num>& numbers, const std::vector<int>& indices,
                     const std::vector<Num>& args, const std::vector<Num>& results,
-                    const std::string& fn) {
+                    const std::string& fn, bool directOnly = false) {
         for (const Num& result : results)
             if (tooBig(result)) return false;
 
@@ -94,7 +94,17 @@ struct Search {
             if (!removed[i]) next.push_back(numbers[i]);
         for (const Num& result : results) next.push_back(result);
 
-        if (contains(next, target) || dfs(next)) {
+        // Канонический порядок: большие числа первыми. Это не меняет
+        // мультимножество, но помогает решателю быстрее добраться до
+        // «полезных» пар в уровнях с сотнями одинаковых чисел.
+        std::sort(next.begin(), next.end(),
+                  [](const Num& a, const Num& b) { return b < a; });
+
+        if (contains(next, target)) {
+            path.push_back(Move{fn, args, results});
+            return true;
+        }
+        if (!directOnly && dfs(next)) {
             path.push_back(Move{fn, args, results});
             return true;
         }
@@ -102,7 +112,7 @@ struct Search {
     }
 
     bool tryTuple(const std::vector<Num>& numbers, const std::vector<int>& indices,
-                  const Fn& function) {
+                  const Fn& function, bool directOnly) {
         std::vector<Num> args;
         args.reserve(indices.size());
         for (int index : indices) args.push_back(numbers[static_cast<std::size_t>(index)]);
@@ -114,7 +124,7 @@ struct Search {
             } catch (...) {
                 return false;
             }
-            return tryResults(numbers, indices, args, results, function.name);
+            return tryResults(numbers, indices, args, results, function.name, directOnly);
         }
 
         // Случайная функция: перебираем все возможные наборы результатов.
@@ -125,22 +135,40 @@ struct Search {
             return false;
         }
         for (const std::vector<Num>& results : all) {
-            if (tryResults(numbers, indices, args, results, function.name)) return true;
+            if (tryResults(numbers, indices, args, results, function.name, directOnly))
+                return true;
             if (aborted) return false;
         }
         return false;
     }
 
-    bool tryFunction(const std::vector<Num>& numbers, const Fn& function) {
+    bool tryFunction(const std::vector<Num>& numbers, const Fn& function,
+                     bool directOnly) {
         const int arity = function.numberOfArgs;
         const int n = static_cast<int>(numbers.size());
         if (arity <= 0 || n < arity) return false;
 
+        // Числа в состоянии отсортированы, поэтому одинаковые значения идут
+        // подряд. Для арности 1–2 достаточно попробовать по одному представителю
+        // каждого значения: выбор другого экземпляра даёт то же мультимножество.
+        struct Group {
+            Num value;
+            int first;
+            int count;
+        };
+        std::vector<Group> groups;
+        for (int i = 0; i < n; ++i) {
+            if (i == 0 || numbers[i] != numbers[i - 1])
+                groups.push_back(Group{numbers[i], i, 1});
+            else
+                ++groups.back().count;
+        }
+
         if (arity == 1) {
             std::vector<int> indices(1);
-            for (int i = 0; i < n; ++i) {
-                indices[0] = i;
-                if (tryTuple(numbers, indices, function)) return true;
+            for (const Group& group : groups) {
+                indices[0] = group.first;
+                if (tryTuple(numbers, indices, function, directOnly)) return true;
                 if (aborted) return false;
             }
             return false;
@@ -148,12 +176,17 @@ struct Search {
 
         if (arity == 2) {
             std::vector<int> indices(2);
-            for (int i = 0; i < n; ++i) {
-                for (int j = 0; j < n; ++j) {
-                    if (i == j) continue;
-                    indices[0] = i;
-                    indices[1] = j;
-                    if (tryTuple(numbers, indices, function)) return true;
+            for (const Group& first : groups) {
+                for (const Group& second : groups) {
+                    if (first.value == second.value) {
+                        if (first.count < 2) continue;
+                        indices[0] = first.first;
+                        indices[1] = first.first + 1;
+                    } else {
+                        indices[0] = first.first;
+                        indices[1] = second.first;
+                    }
+                    if (tryTuple(numbers, indices, function, directOnly)) return true;
                     if (aborted) return false;
                 }
             }
@@ -165,7 +198,7 @@ struct Search {
         indices.reserve(static_cast<std::size_t>(arity));
         std::function<bool()> choose = [&]() -> bool {
             if (static_cast<int>(indices.size()) == arity)
-                return tryTuple(numbers, indices, function);
+                return tryTuple(numbers, indices, function, directOnly);
             for (int i = 0; i < n; ++i) {
                 if (std::find(indices.begin(), indices.end(), i) != indices.end()) continue;
                 indices.push_back(i);
@@ -190,8 +223,18 @@ struct Search {
         if (dead.count(sig) || active.count(sig)) return false;
         active.insert(sig);
 
+        // Сначала проверяем, нельзя ли получить цель одним ходом. Это
+        // позволяет не уходить в глубокий перебор, если решение уже рядом.
         for (const Fn& function : funcs) {
-            if (tryFunction(numbers, function)) return true;
+            if (tryFunction(numbers, function, true)) return true;
+            if (aborted) {
+                active.erase(sig);
+                return false;
+            }
+        }
+
+        for (const Fn& function : funcs) {
+            if (tryFunction(numbers, function, false)) return true;
             if (aborted) {
                 active.erase(sig);
                 return false;
@@ -209,8 +252,11 @@ struct Search {
 bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
            Num target, std::vector<Move>& moves, long long nodeLimit,
            long long timeLimitMs) {
-    Search search(numbers, functions, target, nodeLimit, timeLimitMs);
-    bool ok = search.dfs(numbers);
+    std::vector<Num> initial = numbers;
+    std::sort(initial.begin(), initial.end(),
+              [](const Num& a, const Num& b) { return b < a; });
+    Search search(initial, functions, target, nodeLimit, timeLimitMs);
+    bool ok = search.dfs(initial);
     if (ok) {
         std::reverse(search.path.begin(), search.path.end());
         moves = search.path;

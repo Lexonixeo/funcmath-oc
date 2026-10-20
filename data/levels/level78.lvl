@@ -1,0 +1,15 @@
+# func(math) level 78
+# Прототип: уровень 16 «Уровень, который участник майских сборов прошел за час»
+# Авторские подсказки: 239 = 230 + 9 | 7 + 2 * 8 = 23
+
+number integer 9
+number integer 2
+number integer 5
+number integer 7
+number integer 2
+number integer 8
+answer integer 239
+function div
+function sub
+function mul
+function sum

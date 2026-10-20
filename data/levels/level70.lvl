@@ -1,0 +1,8 @@
+# func(math) level 70
+# Прототип: уровень 8 «2*2=4»
+# Авторские подсказки: Введите mul 2 2
+
+number natural 2
+number natural 2
+answer natural 4
+function mul

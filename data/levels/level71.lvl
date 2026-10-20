@@ -1,0 +1,9 @@
+# func(math) level 71
+# Прототип: уровень 9 «ОТА»
+# Авторские подсказки: Воспользуйтесь основной теоремой арифметики. | Разложите 231 на простые множители.
+
+number natural 30
+number natural 77
+answer natural 231
+function primes
+function mul

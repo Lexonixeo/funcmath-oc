@@ -1,0 +1,10 @@
+# func(math) level 65
+# Прототип: уровень 3 «Римляне»
+# Авторские подсказки: Одно из чисел здесь лишнее
+
+number natural 314
+number natural 81
+number natural 81
+number natural 81
+answer natural 476
+function sum
