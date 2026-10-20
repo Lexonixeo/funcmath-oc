@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <unordered_set>
 
 namespace solver {
@@ -19,8 +20,8 @@ namespace {
 uint64_t signature(std::vector<Num> v) {
     std::sort(v.begin(), v.end());
     uint64_t h = 1469598103934665603ULL;
-    for (Num x : v) {
-        uint64_t u = static_cast<uint64_t>(x);
+    for (const Num& x : v) {
+        uint64_t u = x.hash();
         h ^= u + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
         h *= 1099511628211ULL;
         h ^= h >> 29;
@@ -31,7 +32,7 @@ uint64_t signature(std::vector<Num> v) {
 struct Search {
     const std::vector<Fn>& funcs;
     Num target;
-    Num valueBound;  // отсекаем бессмысленно большие промежуточные числа
+    long long valueBound;  // отсекаем бессмысленно большие промежуточные числа
     long long nodes = 0;
     long long nodeLimit;
     long long timeLimitMs;
@@ -44,14 +45,14 @@ struct Search {
            long long nodeLim, long long timeLim)
         : funcs(f), target(t), nodeLimit(nodeLim), timeLimitMs(timeLim),
           start(std::chrono::steady_clock::now()) {
-        Num maxAbs = t < 0 ? -t : t;
-        for (Num x : numbers) {
-            Num ax = x < 0 ? -x : x;
+        long long maxAbs = std::llabs(t.asLongLong());
+        for (const Num& x : numbers) {
+            long long ax = std::llabs(x.asLongLong());
             if (ax > maxAbs) maxAbs = ax;
         }
         long double b = static_cast<long double>(maxAbs) * 16.0L + 1000.0L;
         if (b > 1000000000.0L) b = 1000000000.0L;
-        valueBound = static_cast<Num>(b);
+        valueBound = static_cast<long long>(b);
         dead.reserve(1 << 16);
     }
 
@@ -63,11 +64,14 @@ struct Search {
         return elapsed >= timeLimitMs;
     }
 
-    bool contains(const std::vector<Num>& v, Num x) {
+    bool contains(const std::vector<Num>& v, const Num& x) {
         return std::find(v.begin(), v.end(), x) != v.end();
     }
 
-    bool tooBig(Num c) const { return c > valueBound || c < -valueBound; }
+    bool tooBig(const Num& c) const {
+        long long value = c.asLongLong();
+        return value > valueBound || value < -valueBound;
+    }
 
     bool dfs(const std::vector<Num>& nums) {
         if (aborted) return false;
@@ -131,6 +135,7 @@ struct Search {
 };
 
 }  // namespace
+
 
 bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
            Num target, std::vector<Move>& moves, long long nodeLimit, long long timeLimitMs) {

@@ -1,6 +1,7 @@
 #include "Level.h"
 
 #include <algorithm>
+#include <exception>
 #include <iostream>
 
 #include "Helper.h"
@@ -8,11 +9,22 @@
 
 namespace {
 
-bool take(std::vector<Num>& v, Num value) {
+bool take(std::vector<Num>& v, const Num& value) {
     auto it = std::find(v.begin(), v.end(), value);
     if (it == v.end()) return false;
     v.erase(it);
     return true;
+}
+
+bool allSameType(const std::vector<Num>& values, ValueType type) {
+    for (const Num& value : values)
+        if (value.type() != type) return false;
+    return true;
+}
+
+ValueType defaultType(const std::vector<Num>& values) {
+    if (!values.empty() && allSameType(values, values.front().type())) return values.front().type();
+    return ValueType::Integer;
 }
 
 }  // namespace
@@ -31,7 +43,14 @@ const Fn* Level::findFunction(const std::string& name) const {
 
 void Level::printNumbers() const {
     std::cout << "У вас есть ограниченный набор чисел:" << std::endl;
-    for (Num n : numbers_) std::cout << n << " ";
+    const bool mixed = !data_.numbers.empty() &&
+                       !(allSameType(data_.numbers, ValueType::Integer) ||
+                         allSameType(data_.numbers, ValueType::Natural));
+    for (const Num& n : numbers_) {
+        std::cout << n.str();
+        if (mixed) std::cout << "(" << n.typeName() << ")";
+        std::cout << " ";
+    }
     std::cout << std::endl << std::endl;
 }
 
@@ -43,10 +62,16 @@ void Level::printFunctions() const {
 
 void Level::printHeader() const {
     std::cout << data_.title << std::endl;
+    if (!data_.numbers.empty() && allSameType(data_.numbers, ValueType::Natural)) {
+        std::cout << "Тип чисел: natural (неотрицательные)" << std::endl;
+    } else if (!data_.numbers.empty() &&
+               !allSameType(data_.numbers, ValueType::Integer)) {
+        std::cout << "Тип чисел: смешанный" << std::endl;
+    }
     printNumbers();
     printFunctions();
     std::cout << "Вам нужно из данных чисел, используя данные функции, получить число "
-              << data_.answer << "." << std::endl << std::endl;
+              << data_.answer.str() << "." << std::endl << std::endl;
 }
 
 void Level::printTutorial() {
@@ -89,7 +114,7 @@ void Level::start() {
 
 void Level::nums() const {
     std::cout << "=";
-    for (Num n : numbers_) std::cout << " " << n;
+    for (const Num& n : numbers_) std::cout << " " << n.str();
     std::cout << std::endl;
 }
 
@@ -143,34 +168,45 @@ void Level::useFunction(const std::vector<std::string>& words) {
         return;
     }
 
-    std::vector<Num> args(args_count);
+    // Аргументы ищем в текущем наборе: так сохраняется тип каждого числа.
+    std::vector<Num> args;
+    std::vector<Num> pool = numbers_;
     for (int i = 0; i < args_count; ++i) {
-        if (!helper::parseInt(words[i + 1], args[i])) {
+        long long value = 0;
+        if (!helper::parseInt(words[i + 1], value)) {
             std::cout << "= Неверные аргументы: должны быть числа! Введите выражение заново." << std::endl;
             return;
         }
+        auto it = std::find_if(pool.begin(), pool.end(),
+                               [value](const Num& n) { return n.asLongLong() == value; });
+        if (it == pool.end()) {
+            std::cout << "= Неверные аргументы: какие-то числа не существуют в наборе! Введите выражение заново." << std::endl;
+            return;
+        }
+        args.push_back(*it);
+        pool.erase(it);
     }
-    if (!multisetContains(args)) {
-        std::cout << "= Неверные аргументы: какие-то числа не существуют в наборе! Введите выражение заново." << std::endl;
+
+    Num result;
+    try {
+        result = function->use(args);
+    } catch (const std::exception& e) {
+        std::cout << "= " << e.what() << std::endl;
         return;
     }
 
-    std::vector<Num> pool = numbers_;
-    for (Num a : args) take(pool, a);
     numbers_ = pool;
-
-    Num result = function->use(args);
     numbers_.push_back(result);
-    std::cout << "= " << result << "   (в наборе:";
-    for (Num v : numbers_) std::cout << " " << v;
+    std::cout << "= " << result.str() << "   (в наборе:";
+    for (const Num& v : numbers_) std::cout << " " << v.str();
     std::cout << ")" << std::endl;
 
     std::string record = name;
-    for (Num v : args) record += " " + std::to_string(v);
-    record += " = " + std::to_string(result);
+    for (const Num& v : args) record += " " + v.str();
+    record += " = " + result.str();
     history_.push_back(record);
 
-    completed_ = (result == data_.answer);
+    completed_ = std::find(numbers_.begin(), numbers_.end(), data_.answer) != numbers_.end();
     stack_.push_back(numbers_);
 }
 
@@ -192,15 +228,27 @@ void Level::calc(const std::vector<std::string>& words) {
         return;
     }
 
-    std::vector<Num> args(args_count);
+    ValueType type = defaultType(numbers_);
+    std::vector<Num> args;
     for (int i = 0; i < args_count; ++i) {
-        if (!helper::parseInt(words[i + 2], args[i])) {
+        long long value = 0;
+        if (!helper::parseInt(words[i + 2], value)) {
             std::cout << "= Неверные аргументы: должны быть числа! Введите выражение заново." << std::endl;
             return;
         }
+        if (type == ValueType::Natural && value < 0) {
+            std::cout << "= В natural-уровне нельзя использовать отрицательные числа." << std::endl;
+            return;
+        }
+        args.push_back(Value::of(type, value));
     }
-    Num result = function->use(args);
-    std::cout << "= " << result << " (без изменения набора)" << std::endl;
+
+    try {
+        Num result = function->use(args);
+        std::cout << "= " << result.str() << " (без изменения набора)" << std::endl;
+    } catch (const std::exception& e) {
+        std::cout << "= " << e.what() << std::endl;
+    }
 }
 
 void Level::hint() {
@@ -213,11 +261,11 @@ void Level::hint() {
         const solver::Move& m = moves.front();
         const Fn* f = findFunction(m.fn);
         const bool random = f != nullptr && !f->isStable();
-        std::cout << "= Подсказка: попробуйте  " << m.fn << " " << m.a << " " << m.b;
+        std::cout << "= Подсказка: попробуйте  " << m.fn << " " << m.a.str() << " " << m.b.str();
         if (random)
             std::cout << "   (результат случайный — может понадобиться несколько попыток)";
         else
-            std::cout << "   (получится " << m.result << ")";
+            std::cout << "   (получится " << m.result.str() << ")";
         std::cout << std::endl;
     } else {
         std::cout << "= Подсказку найти не удалось. Можно вернуться назад командой back или перезапустить уровень (reset)." << std::endl;
@@ -282,7 +330,8 @@ LevelResult Level::play() {
         if (check == -1) break;
     }
     if (completed_) {
-        std::cout << "Поздравляем! Вы получили число " << data_.answer << " и прошли уровень!" << std::endl;
+        std::cout << "Поздравляем! Вы получили число " << data_.answer.str()
+                  << " и прошли уровень!" << std::endl;
     }
     return LevelResult{tutorial_, completed_};
 }

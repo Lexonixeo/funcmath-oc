@@ -21,7 +21,29 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
         std::vector<std::string> words = helper::wordsFromString(line);
         if (words.empty() || words[0].empty()) continue;
         const std::string& key = words[0];
-        if (key == "numbers") {
+        if (key == "number") {
+            if (words.size() != 3) {
+                error = "ожидается 'number <тип> <значение>': " + line;
+                return false;
+            }
+            ValueType type;
+            long long value;
+            if (!valueTypeFromName(words[1], type)) {
+                error = "неизвестный тип числа '" + words[1] + "' в строке: " + line;
+                return false;
+            }
+            if (!helper::parseInt(words[2], value)) {
+                error = "некорректное число в строке: " + line;
+                return false;
+            }
+            if (type == ValueType::Natural && value < 0) {
+                error = "natural не может быть отрицательным: " + line;
+                return false;
+            }
+            out.numbers.push_back(Value::of(type, value));
+            haveNumbers = true;
+        } else if (key == "numbers") {
+            // Старый формат: все числа integer.
             std::vector<std::string> rest(words.begin() + 1, words.end());
             bool ok = false;
             std::vector<long long> nums = helper::numbersFromWords(rest, ok);
@@ -29,15 +51,30 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
                 error = "некорректные числа в строке: " + line;
                 return false;
             }
-            out.numbers.assign(nums.begin(), nums.end());
+            for (long long value : nums) out.numbers.push_back(Value::integer(value));
             haveNumbers = true;
         } else if (key == "answer") {
-            long long v;
-            if (words.size() < 2 || !helper::parseInt(words[1], v)) {
-                error = "некорректный ответ в строке: " + line;
+            ValueType type = ValueType::Integer;
+            long long value = 0;
+            if (words.size() == 2) {
+                if (!helper::parseInt(words[1], value)) {
+                    error = "некорректный ответ в строке: " + line;
+                    return false;
+                }
+            } else if (words.size() == 3 && valueTypeFromName(words[1], type)) {
+                if (!helper::parseInt(words[2], value)) {
+                    error = "некорректный ответ в строке: " + line;
+                    return false;
+                }
+            } else {
+                error = "ожидается 'answer [<тип>] <значение>': " + line;
                 return false;
             }
-            out.answer = v;
+            if (type == ValueType::Natural && value < 0) {
+                error = "natural-ответ не может быть отрицательным: " + line;
+                return false;
+            }
+            out.answer = Value::of(type, value);
             haveAnswer = true;
         } else if (key == "function") {
             if (words.size() < 2) {
@@ -56,7 +93,7 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
         }
     }
     if (!haveNumbers || !haveAnswer || out.functions.empty()) {
-        error = "уровень неполный (нужны numbers, answer и хотя бы одна function)";
+        error = "уровень неполный (нужны number/numbers, answer и хотя бы одна function)";
         return false;
     }
     return true;
@@ -65,10 +102,28 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
 bool save(const std::string& path, const LevelData& data) {
     std::string content;
     content += "# func(math) level " + std::to_string(data.number) + "\n";
-    content += "numbers";
-    for (Num n : data.numbers) content += " " + std::to_string(n);
-    content += "\n";
-    content += "answer " + std::to_string(data.answer) + "\n";
+
+    bool allInteger = data.answer.isInteger();
+    for (const Num& n : data.numbers) {
+        if (!n.isInteger()) {
+            allInteger = false;
+            break;
+        }
+    }
+
+    if (allInteger) {
+        // Сохраняем старый компактный формат, чтобы существующие уровни
+        // оставались читаемыми.
+        content += "numbers";
+        for (const Num& n : data.numbers) content += " " + n.str();
+        content += "\n";
+        content += "answer " + data.answer.str() + "\n";
+    } else {
+        for (const Num& n : data.numbers)
+            content += "number " + n.typeName() + " " + n.str() + "\n";
+        content += "answer " + data.answer.typeName() + " " + data.answer.str() + "\n";
+    }
+
     for (const Fn& f : data.functions) {
         if (f.name == f.behavior)
             content += "function " + f.name + "\n";

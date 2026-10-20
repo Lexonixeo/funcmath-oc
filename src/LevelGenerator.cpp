@@ -29,7 +29,7 @@ LevelData generateRandom(int difficulty) {
     int count = std::max(2, difficulty + randInt(0, std::max(0, difficulty - 1)));
     std::vector<Num> numbers(count);
     int bound = 20 * difficulty;
-    for (Num& x : numbers) x = randInt(-bound, bound);
+    for (Num& x : numbers) x = Value::integer(randInt(-bound, bound));
 
     // 2. Набор функций.
     int want = std::max(1, difficulty / 3) + randInt(0, 1 + (difficulty + 1) / 2);
@@ -59,7 +59,7 @@ LevelData generateRandom(int difficulty) {
               [](const Fn& a, const Fn& b) { return a.name < b.name; });
 
     // 4. Ответ: реально применяем функции к числам, поэтому он достижим.
-    Num answer = 0;
+    Num answer = Value::integer(0);
     bool ok = false;
     for (int attempt = 0; attempt < 200 && !ok; ++attempt) {
         std::vector<Num> work = numbers;
@@ -84,7 +84,10 @@ LevelData generateRandom(int difficulty) {
         answer = work[randInt(0, static_cast<int>(work.size()) - 1)];
         ok = std::find(numbers.begin(), numbers.end(), answer) == numbers.end();
     }
-    if (!ok) answer = numbers[0] + numbers[1];  // крайне маловероятный запасной вариант
+    if (!ok) {
+        // крайне маловероятный запасной вариант
+        answer = Value::integer(numbers[0].asLongLong() + numbers[1].asLongLong());
+    }
 
     LevelData data;
     data.number = -1;
@@ -102,6 +105,15 @@ void authorLevel(const std::string& dataDir) {
     std::cout << std::endl;
 
     std::string line;
+    std::cout << "Тип чисел (integer/natural) [integer]: ";
+    std::getline(std::cin, line);
+    line = helper::trim(line);
+    ValueType type = ValueType::Integer;
+    if (!line.empty() && !valueTypeFromName(line, type)) {
+        std::cout << "Неизвестный тип. Отмена." << std::endl;
+        return;
+    }
+
     std::cout << "Введите числа в наборе: ";
     std::getline(std::cin, line);
     bool ok = false;
@@ -109,6 +121,14 @@ void authorLevel(const std::string& dataDir) {
     if (!ok || numsLL.empty()) {
         std::cout << "Некорректные числа." << std::endl;
         return;
+    }
+    if (type == ValueType::Natural) {
+        for (long long value : numsLL) {
+            if (value < 0) {
+                std::cout << "Natural не может быть отрицательным. Отмена." << std::endl;
+                return;
+            }
+        }
     }
 
     std::cout << "Введите названия известных функций (через пробел, - если нет): ";
@@ -152,6 +172,10 @@ void authorLevel(const std::string& dataDir) {
         std::cout << "Некорректный ответ. Отмена." << std::endl;
         return;
     }
+    if (type == ValueType::Natural && answer < 0) {
+        std::cout << "Natural-ответ не может быть отрицательным. Отмена." << std::endl;
+        return;
+    }
 
     std::sort(functions.begin(), functions.end(),
               [](const Fn& a, const Fn& b) { return a.name < b.name; });
@@ -159,9 +183,10 @@ void authorLevel(const std::string& dataDir) {
     LevelData data;
     data.number = levelstore::nextLevelNumber(dataDir);
     data.title = "Уровень " + std::to_string(data.number) + ".";
-    data.numbers.assign(numsLL.begin(), numsLL.end());
+    data.numbers.clear();
+    for (long long value : numsLL) data.numbers.push_back(Value::of(type, value));
     data.functions = functions;
-    data.answer = answer;
+    data.answer = Value::of(type, answer);
 
     std::string path = levelstore::levelPath(dataDir, data.number);
     if (levelstore::save(path, data)) {

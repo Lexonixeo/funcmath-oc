@@ -3,10 +3,19 @@
 // Формат текстовый (переносимый, в отличие от Java-сериализации):
 //
 //   # комментарий
-//   numbers 2 5 7
-//   answer 9
+//   number natural 3
+//   number natural 4
+//   number integer -5
+//   answer natural 12
 //   function sum
 //   function A unknown mul      # неизвестная функция A, ведущая себя как mul
+//
+// Старый формат без типов тоже поддерживается: все числа и ответ считаются
+// integer.
+//   numbers 2 5 7
+//   answer 9
+//
+// Тип хранится у каждого числа (Value), а не у уровня.
 
 #include <string>
 #include <vector>
@@ -18,7 +27,7 @@ struct LevelData {
     std::string title;          // заголовок, напр. "Уровень 5."
     std::vector<Num> numbers;
     std::vector<Fn> functions;
-    Num answer = 0;
+    Num answer = Num(0);
 };
 
 namespace levelstore {

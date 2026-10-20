@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <limits>
 #include <random>
+#include <stdexcept>
 
 #include "Helper.h"
 
@@ -23,122 +23,214 @@ std::map<std::string, std::string>& descriptionMap() {
 }
 
 // Ограничение на величины, чтобы избежать переполнений и UB.
-constexpr Num kLimit = 1000000000000000000LL;  // 1e18
+constexpr long long kLimit = 1000000000000000000LL;  // 1e18
 
 // Максимум значений, перебираемых за один вызов случайной функции.
 // Пока диапазоны в уровнях малы, перебор полный; для гигантских диапазонов
 // значения прореживаются, чтобы поиск не раздувался. Это единственное место,
 // которое надо поменять, если позже понадобится другая стратегия.
-constexpr Num kMaxOutcomes = 4096;
+constexpr long long kMaxOutcomes = 4096;
 
-Num clampLD(long double v) {
+long long clampLL(long double v) {
     if (v > static_cast<long double>(kLimit)) return kLimit;
     if (v < -static_cast<long double>(kLimit)) return -kLimit;
-    return static_cast<Num>(v);
+    return static_cast<long long>(v);
 }
 
-// --- Реализации функций (порт SimplestFunctions) -------------------------
+// Если хотя бы один аргумент integer, результат integer; natural + natural
+// остаётся natural. Позже здесь появится полноценная таблица конверсий.
+ValueType commonType(const Value& a, const Value& b) {
+    return (a.type() == ValueType::Natural && b.type() == ValueType::Natural)
+               ? ValueType::Natural
+               : ValueType::Integer;
+}
 
-Num opSum(Num a, Num b) { return clampLD(static_cast<long double>(a) + b); }
-Num opSub(Num a, Num b) { return clampLD(static_cast<long double>(a) - b); }
-Num opMul(Num a, Num b) { return clampLD(static_cast<long double>(a) * b); }
+Value make(ValueType type, long long result) {
+    if (type == ValueType::Natural && result < 0) {
+        throw std::domain_error("natural: отрицательный результат");
+    }
+    return Value::of(type, result);
+}
 
-Num opAbs(Num a, Num) { return a < 0 ? -a : a; }
+Value make(ValueType type, long double value) {
+    return make(type, clampLL(value));
+}
 
-// Специальные функции из раннего однофайлового прототипа. Там они были
-// «неизвестными» A и B; теперь доступны как обычные поведения, чтобы
-// сохранить старые уровни.
-Num opFive(Num, Num) { return 5; }  // игнорирует аргументы
-Num opNeg2(Num a, Num) { return clampLD(2.0L - static_cast<long double>(a)); }
+Value addDelta(const Value& base, long long delta) {
+    return make(base.type(), static_cast<long double>(base.asLongLong()) + delta);
+}
 
-Num opMod(Num a, Num b) {
-    if (b == 0 || b == -1) return 0;  // b == -1: остаток всегда 0
-    Num m = b < 0 ? -b : b;
-    Num r = a % m;
+// Остаток как в Java: всегда неотрицательный при b != 0.
+long long modLL(long long a, long long b) {
+    if (b == 0 || b == -1) return 0;
+    long long m = b < 0 ? -b : b;
+    long long r = a % m;
     if (r < 0) r += m;
     return r;
 }
 
-Num opDiv(Num a, Num b) {
-    if (b == 0) return 0;
-    Num mod = opMod(a, b);
-    return (a - mod) / b;  // величины ограничены kLimit, переполнения нет
+// --- Реализации функций (порт SimplestFunctions) -------------------------
+
+Value opSum(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long double>(a.asLongLong()) +
+                                      static_cast<long double>(b.asLongLong()));
 }
 
-Num opAvg(Num a, Num b) { return (a + b) / 2; }
-
-Num opPow(Num a, Num b) {
-    if (b < 0) return 0;
-    if (a == 1) return 1;
-    if (a == 0) return b == 0 ? 1 : 0;
-    if (a == -1) return (b % 2 == 0) ? 1 : -1;
-    Num result = 1;
-    for (Num i = 0; i < b; ++i) {
-        long double est = static_cast<long double>(result) * a;
-        if (est > static_cast<long double>(kLimit) ||
-            est < -static_cast<long double>(kLimit))
-            return clampLD(est);
-        result = static_cast<Num>(est);
+Value opSub(Value a, Value b) {
+    ValueType type = commonType(a, b);
+    if (type == ValueType::Natural && a.asLongLong() < b.asLongLong()) {
+        throw std::domain_error("natural: нельзя вычесть большее из меньшего");
     }
-    return result;
+    return make(type, static_cast<long double>(a.asLongLong()) -
+                          static_cast<long double>(b.asLongLong()));
 }
 
-Num opRand(Num a, Num b) { return randBetween(a, b); }
+Value opMul(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long double>(a.asLongLong()) *
+                                      static_cast<long double>(b.asLongLong()));
+}
+
+Value opAbs(Value a, Value) {
+    if (a.isNatural()) return a;
+    return make(ValueType::Integer,
+                static_cast<long double>(std::llabs(a.asLongLong())));
+}
+
+// Специальные функции из раннего однофайлового прототипа. Там они были
+// «неизвестными» A и B; теперь доступны как обычные поведения, чтобы
+// сохранить старые уровни.
+Value opFive(Value a, Value b) { return make(commonType(a, b), 5LL); }
+Value opNeg2(Value a, Value b) {
+    return make(commonType(a, b),
+                2.0L - static_cast<long double>(a.asLongLong()));
+}
+
+Value opMod(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long double>(
+                                      modLL(a.asLongLong(), b.asLongLong())));
+}
+
+Value opDiv(Value a, Value b) {
+    ValueType type = commonType(a, b);
+    if (b == 0) return make(type, 0LL);
+    long long x = a.asLongLong();
+    long long y = b.asLongLong();
+    long long mod = modLL(x, y);
+    return make(type, static_cast<long double>((x - mod) / y));
+}
+
+Value opAvg(Value a, Value b) {
+    return make(commonType(a, b),
+                (static_cast<long double>(a.asLongLong()) +
+                 static_cast<long double>(b.asLongLong())) /
+                    2.0L);
+}
+
+Value opPow(Value a, Value b) {
+    ValueType type = commonType(a, b);
+    long long x = a.asLongLong();
+    long long y = b.asLongLong();
+    if (y < 0) return make(type, 0LL);
+    if (x == 1) return make(type, 1LL);
+    if (x == 0) return make(type, y == 0 ? 1LL : 0LL);
+    if (x == -1) return make(type, (y % 2 == 0) ? 1LL : -1LL);
+    long long result = 1;
+    for (long long i = 0; i < y; ++i) {
+        long double est = static_cast<long double>(result) * x;
+        if (est > static_cast<long double>(kLimit) ||
+            est < -static_cast<long double>(kLimit)) {
+            return make(type, est);
+        }
+        result = static_cast<long long>(est);
+    }
+    return make(type, static_cast<long double>(result));
+}
+
+Value opRand(Value a, Value b) {
+    long long x = a.asLongLong();
+    long long y = b.asLongLong();
+    if (x > y) std::swap(x, y);
+    return make(commonType(a, b),
+                static_cast<long double>(randBetween(x, y)));
+}
 
 // Побитовые операции — как в Java (32-битные int).
-int32_t to32(Num x) { return static_cast<int32_t>(x); }
-
-Num opAnd(Num a, Num b) { return static_cast<Num>(to32(a) & to32(b)); }
-Num opOr(Num a, Num b) { return static_cast<Num>(to32(a) | to32(b)); }
-Num opNot(Num a, Num) { return static_cast<Num>(~to32(a)); }
-Num opXor(Num a, Num b) { return static_cast<Num>(to32(a) ^ to32(b)); }
-
-Num opSumr(Num a, Num b) { return opSum(a, b) + randBetween(-10, 10); }
-Num opSubr(Num a, Num b) { return opSub(a, b) + randBetween(-10, 10); }
-Num opMulr(Num a, Num b) { return opMul(a, b) + randBetween(-25, 25); }
-Num opDivr(Num a, Num b) { return opDiv(a, b) + randBetween(-25, 25); }
-
-Num opConc(Num a, Num b) {
-    std::string s = std::to_string(a) + std::to_string(b);
-    long long v;
-    if (!helper::parseInt(s, v)) return 0;
-    return v;
+int32_t to32(const Value& x) {
+    return static_cast<int32_t>(x.asLongLong());
 }
 
-Num opBase(Num a, Num b) {
+Value opAnd(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long long>(to32(a) & to32(b)));
+}
+Value opOr(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long long>(to32(a) | to32(b)));
+}
+Value opNot(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long long>(~to32(a)));
+}
+Value opXor(Value a, Value b) {
+    return make(commonType(a, b), static_cast<long long>(to32(a) ^ to32(b)));
+}
+
+Value opSumr(Value a, Value b) { return addDelta(opSum(a, b), randBetween(-10, 10)); }
+Value opSubr(Value a, Value b) { return addDelta(opSub(a, b), randBetween(-10, 10)); }
+Value opMulr(Value a, Value b) { return addDelta(opMul(a, b), randBetween(-25, 25)); }
+Value opDivr(Value a, Value b) { return addDelta(opDiv(a, b), randBetween(-25, 25)); }
+
+Value opConc(Value a, Value b) {
+    std::string s = a.str() + b.str();
+    long long v;
+    if (!helper::parseInt(s, v)) return make(commonType(a, b), 0LL);
+    return make(commonType(a, b), static_cast<long double>(v));
+}
+
+Value opBase(Value a, Value b) {
     // Перевод записи числа a в системе счисления b в десятичное.
-    if (b < 2 || b > 36) return 0;
-    std::string s = std::to_string(a);
+    long long base = b.asLongLong();
+    if (base < 2 || base > 36) return make(commonType(a, b), 0LL);
+    std::string s = a.str();
     bool neg = false;
     std::size_t i = 0;
     if (!s.empty() && (s[0] == '-' || s[0] == '+')) {
         neg = (s[0] == '-');
         i = 1;
     }
-    Num result = 0;
+    long long result = 0;
     for (; i < s.size(); ++i) {
         char c = s[i];
         int d;
         if (c >= '0' && c <= '9') d = c - '0';
         else if (c >= 'a' && c <= 'z') d = c - 'a' + 10;
         else if (c >= 'A' && c <= 'Z') d = c - 'A' + 10;
-        else return 0;
-        if (d >= b) return 0;
-        result = result * b + d;
+        else return make(commonType(a, b), 0LL);
+        if (d >= base) return make(commonType(a, b), 0LL);
+        result = result * base + d;
     }
-    return neg ? -result : result;
+    return make(commonType(a, b),
+                static_cast<long double>(neg ? -result : result));
 }
 
-Num opRound(Num a, Num b) {
-    if (b < 0) b = 0;
-    Num c = opPow(10, b);
+Value opRound(Value a, Value b) {
+    ValueType type = commonType(a, b);
+    long long places = b.asLongLong();
+    if (places < 0) places = 0;
+    long long c = 1;
+    for (long long i = 0; i < places; ++i) {
+        if (c > kLimit / 10) {
+            c = kLimit;
+            break;
+        }
+        c *= 10;
+    }
     if (c == 0) c = 1;
-    Num preans1 = a / c * c;
-    Num preans2 = preans1 + c;
-    Num d1 = preans2 - a, d2 = a - preans1;
+    long long x = a.asLongLong();
+    long long preans1 = (x / c) * c;
+    long long preans2 = preans1 + c;
+    long long d1 = preans2 - x;
+    long long d2 = x - preans1;
     if (d1 < 0) d1 = -d1;
     if (d2 < 0) d2 = -d2;
-    return (d1 > d2) ? preans1 : preans2;
+    return make(type, static_cast<long double>((d1 > d2) ? preans1 : preans2));
 }
 
 std::map<std::string, Op> buildOps() {
@@ -179,66 +271,79 @@ bool isStable(const std::string& name) {
 
 std::vector<Num> outcomes(const std::string& name, Num a, Num b) {
     std::vector<Num> result;
+    ValueType type = commonType(a, b);
 
     if (name == "rand") {
-        if (a > b) std::swap(a, b);
-        long double span = static_cast<long double>(b) - static_cast<long double>(a) + 1.0L;
+        long long x = a.asLongLong();
+        long long y = b.asLongLong();
+        if (x > y) std::swap(x, y);
+        long double span = static_cast<long double>(y) - static_cast<long double>(x) + 1.0L;
         if (span <= 0.0L) {
-            result.push_back(a);
+            result.push_back(Value::of(type, x));
             return result;
         }
         if (span <= static_cast<long double>(kMaxOutcomes)) {
-            // Полный перебор диапазона [a, b].
+            // Полный перебор диапазона [x, y].
             result.reserve(static_cast<std::size_t>(span));
-            for (Num v = a;; ++v) {
-                result.push_back(v);
-                if (v == b) break;
+            for (long long v = x;; ++v) {
+                result.push_back(Value::of(type, v));
+                if (v == y) break;
             }
         } else {
             result.reserve(static_cast<std::size_t>(kMaxOutcomes));
-            for (Num k = 0; k < kMaxOutcomes; ++k) {
+            for (long long k = 0; k < kMaxOutcomes; ++k) {
                 long double t = static_cast<long double>(k) /
                                 static_cast<long double>(kMaxOutcomes - 1);
-                result.push_back(static_cast<Num>(
-                    static_cast<long double>(a) + t * (span - 1.0L)));
+                result.push_back(Value::of(
+                    type, clampLL(static_cast<long double>(x) + t * (span - 1.0L))));
             }
         }
         return result;
     }
 
     // Функции «с погрешностью»: базовое значение ± delta.
-    Num base = 0;
-    Num delta = 0;
-    if (name == "sumr") {
-        base = opSum(a, b);
-        delta = 10;
-    } else if (name == "subr") {
-        base = opSub(a, b);
-        delta = 10;
-    } else if (name == "mulr") {
-        base = opMul(a, b);
-        delta = 25;
-    } else if (name == "divr") {
-        base = opDiv(a, b);
-        delta = 25;
-    } else {
-        // Стабильная функция (или неизвестная): единственный результат.
-        auto it = ops().find(name);
-        if (it == ops().end()) return result;
-        result.push_back(it->second(a, b));
+    Value base;
+    long long delta = 0;
+    try {
+        if (name == "sumr") {
+            base = opSum(a, b);
+            delta = 10;
+        } else if (name == "subr") {
+            base = opSub(a, b);
+            delta = 10;
+        } else if (name == "mulr") {
+            base = opMul(a, b);
+            delta = 25;
+        } else if (name == "divr") {
+            base = opDiv(a, b);
+            delta = 25;
+        } else {
+            // Стабильная функция (или неизвестная): единственный результат.
+            auto it = ops().find(name);
+            if (it == ops().end()) return result;
+            result.push_back(it->second(a, b));
+            return result;
+        }
+    } catch (const std::exception&) {
+        // Для strict natural неудачная операция не даёт допустимых исходов.
         return result;
     }
+
     result.reserve(static_cast<std::size_t>(2 * delta + 1));
-    for (Num k = -delta; k <= delta; ++k)
-        result.push_back(clampLD(static_cast<long double>(base) + k));
+    for (long long k = -delta; k <= delta; ++k) {
+        long double value = static_cast<long double>(base.asLongLong()) + k;
+        long long candidate = clampLL(value);
+        if (type == ValueType::Natural && candidate < 0) continue;
+        result.push_back(Value::of(type, candidate));
+    }
     return result;
 }
 
-Num randBetween(Num a, Num b) {
+long long randBetween(long long a, long long b) {
     if (a > b) std::swap(a, b);
-    Num span = b - a + 1;
+    long long span = b - a + 1;
     if (span <= 0) return a;
-    std::uniform_int_distribution<Num> dist(0, span - 1);
+    std::uniform_int_distribution<long long> dist(0, span - 1);
     return a + dist(rng());
 }
 

@@ -1,13 +1,16 @@
 #pragma once
 // Библиотека простейших функций — порт класса SimplestFunctions.
-// Значения — long long (в Java были int; для игровых уровней поведение совпадает).
+// Значения — Value (natural/integer). На этом этапе функции всё ещё бинарные;
+// произвольная арность и несколько результатов появятся следующим шагом.
 
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
 
-using Num = long long;
+#include "Value.h"
+
+using Num = Value;
 
 namespace fmath {
 
@@ -32,7 +35,7 @@ bool isStable(const std::string& name);
 std::vector<Num> outcomes(const std::string& name, Num a, Num b);
 
 // Случайное целое в [min(a,b), max(a,b)] включительно.
-Num randBetween(Num a, Num b);
+long long randBetween(long long a, long long b);
 
 // Список имён функций, подходящих для генерации уровней.
 const std::vector<std::string>& generationPool();
