@@ -1,3 +1,11 @@
+// LevelGenerator.cpp
+// ------------------
+// Две независимые вещи:
+//   * generateRandom — случайный, но гарантированно решаемый уровень;
+//   * authorLevel / functionEditor — интерактивные редакторы для человека.
+//
+// Генератор не вызывает решатель: он строит ответ реальным применением
+// функций к числам, поэтому достижимость гарантирована по построению.
 #include "LevelGenerator.h"
 
 #include <algorithm>
@@ -21,6 +29,8 @@ int randInt(int lo, int hi) {
 }
 
 bool parseArgument(const std::string& token, Num& value, std::string& error) {
+    // Аргументы --function test: "6" (integer) или "natural=6".
+    // Для выбора natural-перегрузки нужен явный тип.
     std::size_t eq = token.find('=');
     if (eq != std::string::npos) {
         ValueType type;
@@ -76,6 +86,8 @@ std::string restOf(const std::string& line, const std::string& key) {
 }  // namespace
 
 LevelData generateRandom(int difficulty) {
+    // Сложность управляет количеством чисел, диапазоном значений, числом
+    // функций и вероятностью спрятать функцию под именем A/B/C...
     if (difficulty < 1) difficulty = 1;
 
     const auto& pool = fmath::generationPool();
@@ -114,6 +126,8 @@ LevelData generateRandom(int difficulty) {
               [](const Fn& a, const Fn& b) { return a.name < b.name; });
 
     // 4. Ответ: реально применяем функции к числам, поэтому он достижим.
+    // Пробуем несколько раз, чтобы ответ не совпал с одним из исходных
+    // чисел (иначе уровень решался бы без ходов).
     Num answer = Value::integer(0);
     bool ok = false;
     for (int attempt = 0; attempt < 200 && !ok; ++attempt) {
@@ -129,6 +143,8 @@ LevelData generateRandom(int difficulty) {
             if (!f.isStable()) continue;
             std::vector<Num> results;
             try {
+                // Генератор использует обычный (не allOutcomes) вызов:
+                // фиксируем один случайный исход и делаем его целью.
                 results = f.use({a, b});
             } catch (...) {
                 continue;
@@ -161,6 +177,8 @@ LevelData generateRandom(int difficulty) {
 }
 
 void authorLevel(const std::string& dataDir) {
+    // Простой мастер: тип, числа, известные/неизвестные функции, ответ.
+    // Он не проверяет решаемость — для этого есть --check.
     std::cout << "=== Создание нового уровня ===" << std::endl;
     std::cout << "Доступные функции:";
     for (const auto& kv : fmath::registry()) std::cout << " " << kv.first;
@@ -259,6 +277,9 @@ void authorLevel(const std::string& dataDir) {
 }
 
 void functionEditor(const std::string& dataDir) {
+    // REPL для FunctionBlock: команды накапливают сырой блок, validate/test
+    // прогоняют его через тот же compileFunctionBlocks, что и .lvl, а save
+    // пишет data/functions/<имя>.fn.
     std::cout << "=== Редактор пользовательской функции ===" << std::endl;
     printFunctionHelp();
 
@@ -320,6 +341,8 @@ void functionEditor(const std::string& dataDir) {
             if (!rest.empty()) {
                 block.bodyLines.push_back(rest);
             } else {
+                // Многострочный режим: end завершает ввод тела, но не
+                // редактор. Пустые строки в тело не попадают.
                 std::cout << "Вводите строки тела, пока не введёте end." << std::endl;
                 while (true) {
                     std::cout << "body> ";
@@ -363,6 +386,8 @@ void functionEditor(const std::string& dataDir) {
             }
             std::vector<Fn> functions;
             std::vector<FunctionBlock> blocks = {block};
+            // test компилирует временную функцию вместе с встроенными; так
+            // проверяются те же ограничения, что и при загрузке уровня.
             if (!compileFunctionBlocks(blocks, functions, error)) {
                 std::cout << "Ошибка: " << error << std::endl;
                 continue;
@@ -398,6 +423,7 @@ void functionEditor(const std::string& dataDir) {
                 continue;
             }
             std::filesystem::create_directories(dataDir + "/functions");
+            // Имя файла — имя функции; сохраняем только валидный блок.
             std::string path = dataDir + "/functions/" + block.name + ".fn";
             if (helper::writeFile(path, formatFunctionBlock(block)))
                 std::cout << "Сохранено: " << path << std::endl;

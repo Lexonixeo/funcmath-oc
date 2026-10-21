@@ -1,3 +1,7 @@
+// Game.cpp
+// ---------
+// Верхнеуровневый цикл: главное меню, выбор уровня, сохранение прогресса.
+// Game не занимается разбором выражений — это ответственность Level.
 #include "Game.h"
 
 #include <algorithm>
@@ -25,6 +29,8 @@ bool Game::loadLevel(int number, LevelData& out) const {
         std::cout << "Ошибка загрузки уровня: " << error << std::endl;
         return false;
     }
+    // Номер и заголовок задаёт игра, а не файл: один и тот же .lvl можно
+    // использовать как случайный/временный уровень.
     out.number = number;
     out.title = "Уровень " + std::to_string(number) + ".";
     return true;
@@ -45,6 +51,8 @@ void Game::rate(int level) {
 }
 
 void Game::level(int n) {
+    // Сначала фиксируем lastLevel: если игрок выйдет из уровня через exit,
+    // команда next/last всё равно будет знать, где он был.
     if (!isKnownLevel(n)) {
         std::cout << "Такого уровня не существует!" << std::endl;
         return;
@@ -65,6 +73,7 @@ void Game::level(int n) {
 }
 
 void Game::play() {
+    // «Продолжить» — первый непройденный уровень в отсортированном списке.
     for (int lvl : levels_) {
         if (player_.completed.find(lvl) == player_.completed.end()) {
             level(lvl);
@@ -91,6 +100,8 @@ void Game::next() {
 }
 
 void Game::randomLevel(int difficulty) {
+    // Случайный уровень не сохраняется в data/levels и не входит в статистику
+    // пройденных; сохраняется только lastLevel/tutorial.
     if (difficulty < 1) {
         std::cout << "Неверно указана сложность!" << std::endl;
         return;
@@ -103,6 +114,8 @@ void Game::randomLevel(int difficulty) {
 }
 
 void Game::stats() const {
+    // Оценки читаются из общего lvlrate.dat, поэтому средняя оценка —
+    // по всем игрокам, а не только по текущему.
     int total = static_cast<int>(levels_.size());
     int done = static_cast<int>(player_.completed.size());
     std::cout << "=== Статистика игрока " << player_.name << " ===" << std::endl;
@@ -163,6 +176,8 @@ void Game::menu() const {
 }
 
 void Game::run() {
+    // Прогресс сохраняется перед каждым приглашением: так он переживает
+    // аварийное завершение и EOF в перенаправленном stdin.
     helper::clearScreen();
     menu();
     while (true) {

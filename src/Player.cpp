@@ -1,3 +1,14 @@
+// Player.cpp
+// ----------
+// Логин, регистрация и сохранение прогресса.
+//
+// Формат data/players/players.txt: "логин хеш_пароля".
+// Формат data/players/<hash>.sav:
+//   last <номер>
+//   completed <номер> <номер> ...
+//
+// Имя файла сохранения — FNV-1a-хеш логина. Это не защита от подбора, а
+// способ получить безопасное имя файла без спецсимволов.
 #include "Player.h"
 
 #include <cstdint>
@@ -28,6 +39,8 @@ std::string hashPassword(const std::string& password) {
 }
 
 std::map<std::string, std::string> readRegistry(const std::string& path) {
+    // Реестр намеренно простой: по одному "логин хеш" на строку. Пустые
+    // строки и строки без второго слова игнорируются.
     std::map<std::string, std::string> registry;
     for (const std::string& raw : helper::splitLines(helper::readFile(path))) {
         std::string line = helper::trim(raw);
@@ -65,6 +78,8 @@ bool promptLine(const std::string& prompt, std::string& out) {
 }  // namespace
 
 Player login(const std::string& dataDir) {
+    // Регистрация происходит при первом вводе неизвестного логина. Пароль
+    // подтверждается дважды, чтобы опечатка не создала недоступный аккаунт.
     const std::string registryPath = dataDir + "/players/players.txt";
     std::map<std::string, std::string> registry = readRegistry(registryPath);
 
@@ -124,6 +139,8 @@ Player login(const std::string& dataDir) {
 }
 
 void save(const std::string& dataDir, const Player& player) {
+    // Сохраняем весь прогресс целиком: файл маленький, а инкрементальное
+    // обновление усложнило бы восстановление после сбоя.
     std::string content;
     content += "last " + std::to_string(player.lastLevel) + "\n";
     content += "completed";

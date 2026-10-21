@@ -33,7 +33,11 @@ struct LevelData {
 
 namespace levelstore {
 
+// load не бросает исключений: при ошибке возвращает false и текст в error.
+// Частично заполненный out после ошибки не считается валидным.
 bool load(const std::string& path, LevelData& out, std::string& error);
+// save создаёт родительские каталоги; формат старается сохранить старый
+// компактный вид, если все числа integer и имён нет.
 bool save(const std::string& path, const LevelData& data);
 
 // Путь к файлу уровня по его номеру относительно каталога data.

@@ -1,3 +1,14 @@
+// Functions.cpp
+// -------------
+// Реестр простейших (встроенных) функций и их реализаций.
+//
+// Важно разделять:
+//   * Signature — какие типы допустимы и что функция возвращает;
+//   * apply — как вычислить один детерминированный результат;
+//   * allOutcomes — какие результаты возможны у случайной функции.
+//
+// Реестр строится лениво и дальше не меняется, поэтому указатели на
+// FunctionSpec можно безопасно передавать по всему коду.
 #include "Functions.h"
 
 #include <algorithm>
@@ -13,11 +24,15 @@ namespace fmath {
 namespace {
 
 std::mt19937_64& rng() {
+    // Один общий генератор на процесс. Для игры этого достаточно; решатель
+    // не полагается на конкретную последовательность, а перебирает исходы.
     static std::mt19937_64 gen(std::random_device{}());
     return gen;
 }
 
 std::map<std::string, std::string>& descriptionMap() {
+    // Описания загружаются из data/functions.txt при старте. Статическая
+    // map живёт до конца процесса; loadDescriptions заменяет её содержимое.
     static std::map<std::string, std::string> m;
     return m;
 }
@@ -32,6 +47,8 @@ constexpr long long kLimit = 1000000000000000000LL;  // 1e18
 constexpr long long kMaxOutcomes = 4096;
 
 long long clampLL(long double v) {
+    // Насыщение вместо переполнения: дальнейшие операции могут потерять
+    // точность, но не вызовут UB. Это осознанное ограничение модели.
     if (v > static_cast<long double>(kLimit)) return kLimit;
     if (v < -static_cast<long double>(kLimit)) return -kLimit;
     return static_cast<long long>(v);
@@ -57,10 +74,13 @@ Value make(ValueType type, long double value) {
 }
 
 Value addDelta(const Value& base, long long delta) {
+    // Для natural отрицательный результат после прибавления delta — ошибка
+    // домена, а не тихое обрезание.
     return make(base.type(), static_cast<long double>(base.asLongLong()) + delta);
 }
 
-// Остаток как в Java: всегда неотрицательный при b != 0.
+// Остаток как в Java: всегда неотрицательный при b != 0. Для b == -1
+// возвращаем 0, чтобы избежать переполнения на LLONG_MIN / -1.
 long long modLL(long long a, long long b) {
     if (b == 0 || b == -1) return 0;
     long long m = b < 0 ? -b : b;
@@ -111,6 +131,8 @@ Value opMod(Value a, Value b) {
 }
 
 Value opDiv(Value a, Value b) {
+    // Деление целочисленное, с остатком как в Java. Деление на ноль в этой
+    // модели даёт 0 (историческая совместимость), а не исключение.
     ValueType type = commonType(a, b);
     if (b == 0) return make(type, 0LL);
     long long x = a.asLongLong();
@@ -127,6 +149,8 @@ Value opAvg(Value a, Value b) {
 }
 
 Value opPow(Value a, Value b) {
+    // Отрицательная степень в целочисленной модели даёт 0. Особые случаи
+    // 0/1/-1 вынесены, чтобы не крутить длинный цикл и не переполняться.
     ValueType type = commonType(a, b);
     long long x = a.asLongLong();
     long long y = b.asLongLong();
@@ -147,6 +171,7 @@ Value opPow(Value a, Value b) {
 }
 
 Value opRand(Value a, Value b) {
+    // Границы включительны, порядок аргументов не важен.
     long long x = a.asLongLong();
     long long y = b.asLongLong();
     if (x > y) std::swap(x, y);
@@ -178,6 +203,8 @@ Value opMulr(Value a, Value b) { return addDelta(opMul(a, b), randBetween(-25, 2
 Value opDivr(Value a, Value b) { return addDelta(opDiv(a, b), randBetween(-25, 25)); }
 
 Value opConc(Value a, Value b) {
+    // Конкатенация десятичных записей: 12 и 3 -> 123. Если результат не
+    // помещается в целое, возвращаем 0 (историческая семантика).
     std::string s = a.str() + b.str();
     long long v;
     if (!helper::parseInt(s, v)) return make(commonType(a, b), 0LL);
@@ -186,6 +213,7 @@ Value opConc(Value a, Value b) {
 
 Value opBase(Value a, Value b) {
     // Перевод записи числа a в системе счисления b в десятичное.
+    // b вне [2, 36] или недопустимая цифра -> 0 (совместимость с прототипом).
     long long base = b.asLongLong();
     if (base < 2 || base > 36) return make(commonType(a, b), 0LL);
     std::string s = a.str();
@@ -211,6 +239,8 @@ Value opBase(Value a, Value b) {
 }
 
 Value opRound(Value a, Value b) {
+    // Округление до b знаков после запятой, но в целочисленной модели:
+    // b — количество десятичных разрядов, которые нужно «занулить».
     ValueType type = commonType(a, b);
     long long places = b.asLongLong();
     if (places < 0) places = 0;
@@ -234,6 +264,9 @@ Value opRound(Value a, Value b) {
 }
 
 std::map<std::string, Op> buildOps() {
+    // Старый реестр бинарных операций: имя -> функция. Используется
+    // buildRegistry и генератором; новые функции с другой арностью
+    // добавляются сразу в registry().
     return {
         {"sum", opSum},   {"sub", opSub},   {"mul", opMul},   {"div", opDiv},
         {"mod", opMod},   {"abs", opAbs},   {"pow", opPow},   {"rand", opRand},
@@ -281,6 +314,10 @@ bool isStable(const std::string& name) {
 
 // Возможные исходы бинарной функции. Используется реестром для случайных
 // функций; для стабильных реестр вызывает apply().
+//
+// Для rand диапазон может быть очень большим, поэтому при превышении
+// kMaxOutcomes берётся равномерная сетка. Это не полный перебор всех чисел,
+// но сохраняет достижимость «крайних» значений и не раздувает DFS.
 std::vector<Num> binaryOutcomes(const std::string& name, Num a, Num b) {
     std::vector<Num> result;
     ValueType type = commonType(a, b);
@@ -368,6 +405,9 @@ bool matchesAny(const FunctionSpec& spec, const std::vector<Num>& args) {
 }
 
 std::vector<Num> factorize(const Num& number) {
+    // Пробное деление с проверкой p <= value / p вместо p*p <= value:
+    // так нет переполнения на больших long long. Порядок множителей
+    // возрастающий, повторения сохраняются.
     long long value = number.asLongLong();
     if (value < 0) throw std::domain_error("primes: отрицательное число");
     std::vector<Num> result;
@@ -383,6 +423,8 @@ std::vector<Num> factorize(const Num& number) {
 }
 
 std::map<std::string, FunctionSpec> buildRegistry() {
+    // Собираем все встроенные функции в одном месте. Бинарные операции
+    // получают одинаковые сигнатуры, но разные реализации и stable-флаг.
     std::map<std::string, FunctionSpec> result;
 
     const auto one = [](ValueType type) {
@@ -413,6 +455,8 @@ std::map<std::string, FunctionSpec> buildRegistry() {
             return std::vector<Num>{op(args[0], args[1])};
         };
         if (!spec.stable) {
+            // Для случайных функций apply() тоже нужен: генератор уровней и
+            // обычный вызов используют один конкретный исход.
             std::string name = entry.first;
             spec.allOutcomes = [name](const std::vector<Num>& args) {
                 if (args.size() != 2)
@@ -468,6 +512,8 @@ int functionArity(const std::string& name) {
 }
 
 std::vector<Num> apply(const std::string& name, const std::vector<Num>& args) {
+    // Проверка сигнатуры здесь, а не в каждой op: так реализации не должны
+    // повторять одну и ту же логику типов.
     const FunctionSpec* spec = findSpec(name);
     if (spec == nullptr) throw std::runtime_error("неизвестная функция: " + name);
     if (!matchesAny(*spec, args))
@@ -477,6 +523,8 @@ std::vector<Num> apply(const std::string& name, const std::vector<Num>& args) {
 
 std::vector<std::vector<Num>> outcomes(const std::string& name,
                                        const std::vector<Num>& args) {
+    // Для стабильной функции — ровно один вариант. Для случайной —
+    // allOutcomes; пустой список означает, что допустимых исходов нет.
     const FunctionSpec* spec = findSpec(name);
     if (spec == nullptr) throw std::runtime_error("неизвестная функция: " + name);
     if (!matchesAny(*spec, args))
@@ -486,6 +534,8 @@ std::vector<std::vector<Num>> outcomes(const std::string& name,
 }
 
 long long randBetween(long long a, long long b) {
+    // uniform_int_distribution требует непустой диапазон; для вырожденного
+    // или переполненного span возвращаем нижнюю границу.
     if (a > b) std::swap(a, b);
     long long span = b - a + 1;
     if (span <= 0) return a;

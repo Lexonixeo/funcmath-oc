@@ -1,3 +1,22 @@
+// Function.cpp
+// ------------
+// Пользовательские функции: разбор блока, проверка, выбор перегрузки и
+// runtime-интерпретатор тела.
+//
+// Конвейер:
+//
+//   .lvl/.fn
+//     → LevelStore::parseFunctionBlock   (сырой FunctionBlock)
+//     → compileFunctionBlocks           (проверка + FunctionOverload)
+//     → selectOverload                  (выбор по типам аргументов)
+//     → runBody                         (вычисление тела)
+//
+// Тело — последовательность иммутабельных присваиваний. Если выражение
+// случайное, runBody размножает окружения: каждое окружение — один возможный
+// мир. Это позволяет решателю перебрать все исходы, не смешивая их.
+//
+// Типы проверяются во время вычисления, а не статически. Структура блока
+// (имена, выходы, присваивания) проверяется при загрузке.
 #include "Function.h"
 
 #include <algorithm>
@@ -15,11 +34,16 @@
 namespace {
 
 constexpr int kMaxCallDepth = 64;
+// Ограничение на число альтернативных окружений/результатов. Нужно, чтобы
+// случайная функция с большим потоком не взорвала память и DFS.
 constexpr std::size_t kMaxCustomOutcomes = 4096;
 
 std::string trim(const std::string& text) { return helper::trim(text); }
 
 bool isIdentifier(const std::string& name) {
+    // Идентификаторы ASCII: буква/подчёркивание, затем буквы/цифры.
+    // Имена типов (natural/integer) запрещены, чтобы "natural" нельзя было
+    // спутать с литералом/типом.
     if (name.empty()) return false;
     auto isStart = [](unsigned char c) {
         return std::isalpha(c) || c == '_';
@@ -36,6 +60,7 @@ bool isIdentifier(const std::string& name) {
 }
 
 bool isReservedLocalName(const std::string& name) {
+    // Специальные формы тела не могут быть перекрыты локальным именем.
     return name == "take" || name == "drop" || name == "first" || name == "rest" ||
            name == "count";
 }
@@ -52,6 +77,7 @@ bool findOutput(const FunctionOverload& overload, const std::string& name,
 }
 
 std::string blockError(const FunctionBlock& block, const std::string& message) {
+    // Единый формат диагностики: имя функции + строка, если она известна.
     std::string result = "функция " + block.name;
     if (block.line > 0) result += " (строка " + std::to_string(block.line) + ")";
     result += ": " + message;
@@ -73,6 +99,8 @@ bool parseInputType(const std::string& text, ValueType& out, std::string& error)
 
 bool parseResultTokens(const std::vector<std::string>& words, std::size_t from,
                        fmath::ResultSpec& out, std::string& error) {
+    // Список результатов после "->": "integer natural..." и т.п.
+    // Поток может быть только последним; фиксированные типы идут в fixed.
     out = fmath::ResultSpec{};
     if (from >= words.size()) {
         error = "не указан тип результата после ->";
@@ -110,6 +138,8 @@ bool parseResultTokens(const std::vector<std::string>& words, std::size_t from,
 }
 
 bool parseAliasLine(const std::string& raw, AliasDef& out, std::string& error) {
+    // use <алиас> = <функция> <типы> -> <результаты>
+    // Алиас фиксирует сигнатуру, чтобы снять неоднозначность перегрузки.
     std::string line = trim(raw);
     if (line.rfind("use ", 0) == 0) line = trim(line.substr(4));
     std::size_t eq = line.find('=');
@@ -148,6 +178,8 @@ bool parseAliasLine(const std::string& raw, AliasDef& out, std::string& error) {
 }
 
 bool parseBindingLine(const std::string& raw, Binding& out, std::string& error) {
+    // Присваивание: "target = expr" или "a, b = expr".
+    // Правая часть не вычисляется здесь — только режется на слова.
     std::string line = trim(raw);
     std::size_t eq = line.find('=');
     if (eq == std::string::npos) {
@@ -177,6 +209,12 @@ bool parseBindingLine(const std::string& raw, Binding& out, std::string& error) 
 
 bool prepareOverload(const FunctionBlock& block, FunctionOverload& out,
                      std::string& error) {
+    // Структурная проверка одной перегрузки. Здесь проверяется всё, что можно
+    // проверить без вычисления: уникальность имён, форма выходов, алиасы,
+    // синтаксис присваиваний и то, что каждый выход получает значение.
+    //
+    // Типы выражений намеренно не проверяются: они зависят от перегрузок,
+    // значений и случайных исходов.
     out = FunctionOverload{};
     out.source = block;
     if (!isIdentifier(block.name)) {
@@ -244,6 +282,8 @@ bool prepareOverload(const FunctionBlock& block, FunctionOverload& out,
             error = blockError(block, aliasError);
             return false;
         }
+        // Алиас — локальное имя; оно не должно конфликтовать с параметрами,
+        // выходами, другими алиасами и специальными формами.
         if (!aliases.insert(alias.name).second) {
             error = blockError(block, "алиас повторяется: " + alias.name);
             return false;
@@ -266,6 +306,8 @@ bool prepareOverload(const FunctionBlock& block, FunctionOverload& out,
         error = blockError(block, "тело пустое");
         return false;
     }
+    // Выходы можно присваивать только один раз; временные переменные тоже
+    // должны быть уникальны. Параметры и алиасы присваивать нельзя.
     for (const std::string& line : block.bodyLines) {
         Binding binding;
         std::string bindingError;
@@ -326,6 +368,10 @@ const AliasDef* findAlias(const FunctionOverload& overload, const std::string& n
 }
 
 Num coerceValue(const Num& value, ValueType type, std::string& error) {
+    // Приведение только по правилам canPass:
+    //   natural -> integer — всегда;
+    //   integer -> natural — только если значение неотрицательно.
+    // Это проверяемое сужение, поэтому ошибка возможна во время вычисления.
     if (value.type() == type) return value;
     if (value.isNatural() && type == ValueType::Integer) return Value::integer(value.asLongLong());
     if (value.isInteger() && type == ValueType::Natural) {
@@ -341,6 +387,9 @@ Num coerceValue(const Num& value, ValueType type, std::string& error) {
 
 bool selectOverload(const Fn& function, const std::vector<Num>& args,
                     std::shared_ptr<FunctionOverload>& out, std::string& error) {
+    // Выбор перегрузки по score: +1 за каждый точный тип. Расширение
+    // natural -> integer допустимо, но даёт меньший score. Равный лучший
+    // score — неоднозначность; её снимает use-алиас.
     int bestScore = -1;
     std::shared_ptr<FunctionOverload> best;
     for (const auto& overload : function.overloads) {
@@ -372,13 +421,15 @@ bool selectOverload(const Fn& function, const std::vector<Num>& args,
 }
 
 using Env = std::map<std::string, std::vector<Num>>;
+// Один элемент ResultList — один возможный набор результатов вызова.
+// Несколько элементов появляются из-за случайности или потока.
 using ResultList = std::vector<std::vector<Num>>;
 
 struct EvalContext {
     const FunctionOverload& overload;
     const std::vector<Fn>& functions;
-    int depth = 0;
-    bool allOutcomes = false;
+    int depth = 0;          // защита от рекурсии
+    bool allOutcomes = false;  // перебирать ли все случайные исходы
 };
 
 bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
@@ -387,6 +438,9 @@ bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
 
 bool callFunction(const std::string& name, const std::vector<Num>& args,
                   EvalContext& context, ResultList& out, std::string& error) {
+    // Вызов по имени: пользовательская функция уровня, простейшая по
+    // behavior или встроенная по имени. Используется для алиасов и
+    // вложенных вызовов внутри тела.
     const Fn* function = findFn(context.functions, name);
     if (function != nullptr) {
         if (function->isCustom()) {
@@ -449,12 +503,16 @@ bool parseLiteral(const std::string& token, Num& out) {
 bool evalSpecial(const std::string& name, const std::vector<std::string>& words,
                  std::size_t& pos, const Env& env, EvalContext& context,
                  ResultList& out, std::string& error) {
+    // Специальные формы работают с ResultList, а не с одним значением:
+    // take/drop/first/rest/count могут применяться к случайному выражению
+    // и должны сохранить все его миры.
     ++pos;
     if (name == "take" || name == "drop") {
         if (pos >= words.size()) {
             error = name + ": не указано количество";
             return false;
         }
+        // Количество — литерал, а не выражение: это упрощает грамматику.
         long long count;
         if (!helper::parseInt(words[pos], count) || count < 0) {
             error = name + ": количество должно быть неотрицательным целым";
@@ -493,6 +551,8 @@ bool evalSpecial(const std::string& name, const std::vector<std::string>& words,
             error = name + ": не указано выражение";
             return false;
         }
+        // first на пустом потоке — ошибка; rest на пустом даёт пустой поток;
+        // count всегда возвращает integer.
         ResultList inner;
         if (!evalExpr(words, pos, env, context, inner, error)) return false;
         out.clear();
@@ -521,6 +581,8 @@ bool evalSpecial(const std::string& name, const std::vector<std::string>& words,
 bool evalCall(const std::string& name, const std::vector<std::string>& words,
               std::size_t& pos, const Env& env, EvalContext& context,
               ResultList& out, std::string& error) {
+    // Приоритет имени: алиас -> функция уровня -> встроенная функция.
+    // Алиас существует только внутри текущей перегрузки.
     const AliasDef* alias = findAlias(context.overload, name);
     const Fn* function = alias == nullptr ? findFn(context.functions, name) : nullptr;
     const fmath::FunctionSpec* builtin =
@@ -544,6 +606,8 @@ bool evalCall(const std::string& name, const std::vector<std::string>& words,
 
     // Аргументы набираются по значениям, а не по синтаксическим выражениям:
     // mul primes 77 должен получить два числа от одного вложенного вызова.
+    // partials — набор префиксов аргументов; каждый вложенный вызов может
+    // добавить несколько значений и размножить варианты.
     std::vector<std::vector<Num>> partials = {{}};
     while (true) {
         bool needMore = false;
@@ -588,6 +652,8 @@ bool evalCall(const std::string& name, const std::vector<std::string>& words,
         std::string callError;
         bool ok = false;
         if (alias != nullptr) {
+            // Алиас проверяет типы по своей сигнатуре и приводит аргументы
+            // (natural -> integer) до вызова цели.
             std::vector<Num> aliasArgs = values;
             ok = true;
             for (std::size_t i = 0; i < aliasArgs.size(); ++i) {
@@ -653,6 +719,9 @@ bool evalCall(const std::string& name, const std::vector<std::string>& words,
 bool evalExpr(const std::vector<std::string>& words, std::size_t& pos,
               const Env& env, EvalContext& context, ResultList& out,
               std::string& error) {
+    // Порядок важен: специальные формы не могут быть перекрыты функцией;
+    // затем проверяются локальные имена (алиас/функция), встроенные функции,
+    // литералы и переменные окружения.
     if (pos >= words.size()) {
         error = "недостаточно аргументов";
         return false;
@@ -673,11 +742,13 @@ bool evalExpr(const std::vector<std::string>& words, std::size_t& pos,
 
     Num literal;
     if (parseLiteral(token, literal)) {
+        // Bare-литерал в теле — integer; natural=... нужен явно.
         out = {{literal}};
         ++pos;
         return true;
     }
 
+    // Переменная окружения: параметр, выход или временная переменная.
     auto it = env.find(token);
     if (it != env.end()) {
         out = {it->second};
@@ -690,6 +761,9 @@ bool evalExpr(const std::vector<std::string>& words, std::size_t& pos,
 
 bool assignBinding(const Binding& binding, const FunctionOverload& overload,
                    const std::vector<Num>& values, Env& env, std::string& error) {
+    // Один target получает весь вектор значений (это выход-поток).
+    // Несколько targets — покомпонентное присваивание; поток в таком
+    // присваивании запрещён, потому что его длина неизвестна.
     if (binding.targets.size() == 1) {
         const std::string& target = binding.targets.front();
         const OutputDef* output = nullptr;
@@ -744,6 +818,8 @@ bool assignBinding(const Binding& binding, const FunctionOverload& overload,
 
 bool gatherOutputs(const FunctionOverload& overload, const Env& env,
                    std::vector<Num>& out, std::string& error) {
+    // Порядок результатов — порядок объявления out в блоке. Фиксированный
+    // выход обязан содержать ровно одно значение; поток — любое количество.
     out.clear();
     for (const OutputDef& output : overload.source.outputs) {
         auto it = env.find(output.name);
@@ -775,6 +851,10 @@ bool gatherOutputs(const FunctionOverload& overload, const Env& env,
 bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
              const std::vector<Fn>& functions, bool allOutcomes, int depth,
              ResultList& out, std::string& error) {
+    // Каждое присваивание может дать несколько альтернатив (случайность,
+    // поток). envs — множество возможных окружений; после каждой строки
+    // перемножаем альтернативы. Для стабильного вызова envs почти всегда
+    // остается одним элементом.
     out.clear();
     if (depth > kMaxCallDepth) {
         error = "слишком глубокая рекурсия (возможно, функция вызывает себя)";
@@ -790,6 +870,8 @@ bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
     for (std::size_t i = 0; i < args.size(); ++i) {
         Num value = args[i];
         std::string convertError;
+        // Параметры тоже проходят проверяемое приведение: natural-перегрузка
+        // не примет отрицательный integer.
         value = coerceValue(value, overload.inputTypes[i], convertError);
         if (!convertError.empty()) {
             error = "параметр " + overload.source.params[i].name + ": " + convertError;
@@ -848,6 +930,8 @@ bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
             error = gatherError;
             return false;
         }
+        // Порядок окружений не важен для решателя, но сохраняет
+        // детерминированный порядок результатов обычного вызова.
         out.push_back(std::move(results));
         if (out.size() > kMaxCustomOutcomes) break;
     }
@@ -856,6 +940,9 @@ bool runBody(const FunctionOverload& overload, const std::vector<Num>& args,
 
 bool aliasTargetExists(const AliasDef& alias, const std::vector<Fn>& functions,
                        std::string& error) {
+    // Цель алиаса может быть функцией уровня (включая объявленную позже) или
+    // встроенной. Проверяем, что среди её сигнатур есть совместимая с
+    // объявленными типами алиаса.
     const Fn* function = findFn(functions, alias.function);
     if (function != nullptr) {
         for (const auto& overload : function->overloads) {
@@ -904,6 +991,8 @@ bool hasLocalName(const FunctionOverload& overload, const std::string& name) {
 
 bool wordMakesUnstable(const std::string& word, const FunctionOverload& overload,
                        const std::vector<Fn>& functions) {
+    // Локальное имя/спецформа — не вызов. Для алиаса смотрим на цель,
+    // для функции уровня/встроенной — на её stable-флаг.
     if (hasLocalName(overload, word)) return false;
     if (isSpecialName(word)) return false;
     for (const AliasDef& alias : overload.aliases) {
@@ -955,6 +1044,8 @@ std::string unknownDescription(const std::string& name, int numberOfArgs) {
 
 std::vector<Num> Fn::use(const std::vector<Num>& args,
                          const std::vector<Fn>* functions) const {
+    // Обычный вызов: для простейшей — напрямую в реестр; для пользовательской
+    // — выбрать перегрузку и выполнить тело в детерминированном режиме.
     if (!isCustom()) return fmath::apply(behavior, args);
     if (functions == nullptr)
         throw std::runtime_error("для пользовательской функции нужно окружение функций");
@@ -971,6 +1062,9 @@ std::vector<Num> Fn::use(const std::vector<Num>& args,
 
 std::vector<std::vector<Num>> Fn::outcomes(
     const std::vector<Num>& args, const std::vector<Fn>* functions) const {
+    // Для простейшей — исходы реестра. Для пользовательской — все миры,
+    // которые порождает тело. Stable-перегрузка всё равно может дать
+    // несколько результатов из-за потока, поэтому результат — список списков.
     if (!isCustom()) return fmath::outcomes(behavior, args);
     if (functions == nullptr)
         throw std::runtime_error("для пользовательской функции нужно окружение функций");
@@ -986,6 +1080,9 @@ std::vector<std::vector<Num>> Fn::outcomes(
 }
 
 bool Fn::isStable() const {
+    // Пользовательская функция стабильна, только если стабильны все её
+    // перегрузки. Стабильность перегрузок уже посчитана транзитивно в
+    // compileFunctionBlocks.
     if (!isCustom()) return fmath::isStable(behavior);
     for (const auto& overload : overloads)
         if (!overload->stable) return false;
@@ -1012,11 +1109,22 @@ Fn makeUnknownFunction(const std::string& name, const std::string& behavior) {
 
 bool compileFunctionBlocks(const std::vector<FunctionBlock>& blocks,
                            std::vector<Fn>& functions, std::string& error) {
+    // Компиляция всех пользовательских блоков уровня.
+    //
+    // 1. Сгруппировать блоки по имени (перегрузки).
+    // 2. Проверить структуру каждой перегрузки.
+    // 3. Добавить Fn в functions.
+    // 4. Проверить алиасы (могут ссылаться на функции, объявленные позже).
+    // 5. Проверить конфликты локальных имён с функциями.
+    // 6. Распространить нестабильность до неподвижной точки.
     if (blocks.empty()) return true;
 
     std::vector<std::string> order;
     std::map<std::string, std::vector<const FunctionBlock*>> groups;
     for (const FunctionBlock& block : blocks) {
+        // Имя пользовательской функции не должно пересекаться с
+        // зарезервированными формами, встроенными функциями и функциями,
+        // уже объявленными в уровне.
         if (!isIdentifier(block.name)) {
             error = blockError(block, "некорректное имя функции");
             return false;
@@ -1052,11 +1160,16 @@ bool compileFunctionBlocks(const std::vector<FunctionBlock>& blocks,
                 error = overloadError;
                 return false;
             }
+            // Все перегрузки одной функции должны иметь одинаковую арность:
+            // numberOfArgs — одно число на Fn, и его использует парсер
+            // выражений для набора аргументов.
             if (arity < 0) arity = static_cast<int>(overload->inputTypes.size());
             if (arity != static_cast<int>(overload->inputTypes.size())) {
                 error = blockError(*block, "у перегрузок разная арность");
                 return false;
             }
+            // Сигнатура только по типам входов; повторная перегрузка с теми
+            // же типами не имеет смысла.
             std::string signature;
             for (ValueType type : overload->inputTypes)
                 signature += valueTypeName(type) + ";";
@@ -1143,6 +1256,8 @@ bool compileFunctionBlocks(const std::vector<FunctionBlock>& blocks,
 }
 
 bool validateFunctionBlock(const FunctionBlock& block, std::string& error) {
+    // Валидация без добавления в уровень: используется редактором --function.
+    // Компилируем во временный vector, чтобы не менять состояние игры.
     std::vector<Fn> functions;
     std::vector<FunctionBlock> blocks = {block};
     return compileFunctionBlocks(blocks, functions, error);
@@ -1189,6 +1304,9 @@ bool parseResultType(const std::string& text, fmath::ResultSpec& out,
 }
 
 std::string formatFunctionBlock(const FunctionBlock& block) {
+    // Обратная сериализация для save/--function. Формат должен совпадать с
+    // тем, что понимает parseFunctionBlock; body-строки хранятся уже
+    // обрезанными, поэтому добавляем отступ.
     std::string content;
     content += "function " + block.name + "\n";
     if (!block.description.empty())

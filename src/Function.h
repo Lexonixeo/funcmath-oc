@@ -30,6 +30,12 @@ struct OutputDef {
 
 // Исходный блок пользовательской функции. Хранится и для вычисления, и для
 // обратной записи в .lvl без потери форматирования.
+//
+// Это «сырые» строки из парсера. Проверенная и подготовленная форма —
+// FunctionOverload ниже. Такое разделение позволяет:
+//   * точно показать ошибку с номером строки;
+//   * сохранить блок обратно в файл;
+//   * не тащить парсер в runtime.
 struct FunctionBlock {
     std::string name;
     std::string description;
@@ -41,6 +47,8 @@ struct FunctionBlock {
 };
 
 // Разобранный алиас: use d = div integer integer -> integer natural.
+// Алиас — это локальное имя для конкретной сигнатуры, чтобы снять
+// неоднозначность перегрузки и зафиксировать типы аргументов.
 struct AliasDef {
     std::string name;
     std::string function;
@@ -49,18 +57,23 @@ struct AliasDef {
 };
 
 // Одно присваивание в теле: q, r = take 2 primes n.
+// targets могут ссылаться на выходы или временные переменные; rhs — уже
+// разбитое на слова префиксное выражение.
 struct Binding {
     std::vector<std::string> targets;
     std::vector<std::string> rhs;
-    std::string source;
+    std::string source;  // исходная строка — для диагностики
 };
 
+// Готовая к вычислению перегрузка. Все проверки структуры уже выполнены.
 struct FunctionOverload {
     FunctionBlock source;
     std::vector<ValueType> inputTypes;
     fmath::ResultSpec results;
     std::vector<AliasDef> aliases;
     std::vector<Binding> body;
+    // Стабильность вычисляется транзитивно: вызов rand или нестабильной
+    // пользовательской функции делает нестабильной всю перегрузку.
     bool stable = true;
 };
 
@@ -69,14 +82,18 @@ struct Fn {
     std::string description;  // строка для показа игроку
     std::string behavior;     // ключ в fmath::registry(), для простейших функций
     int numberOfArgs = 2;
+    // Пусто для простейших функций. Несколько элементов — перегрузки одной
+    // пользовательской функции; выбираются по типам аргументов.
     std::vector<std::shared_ptr<FunctionOverload>> overloads;
 
     bool isCustom() const { return !overloads.empty(); }
 
     // functions нужен пользовательским функциям, чтобы вызывать другие
     // функции уровня. Для простейших он игнорируется.
+    // use() — обычное вычисление (первый допустимый исход).
     std::vector<Num> use(const std::vector<Num>& args,
                          const std::vector<Fn>* functions = nullptr) const;
+    // outcomes() — все исходы случайности; для стабильной функции один.
     std::vector<std::vector<Num>> outcomes(
         const std::vector<Num>& args,
         const std::vector<Fn>* functions = nullptr) const;

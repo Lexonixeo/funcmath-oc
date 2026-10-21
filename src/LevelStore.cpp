@@ -1,3 +1,14 @@
+// LevelStore.cpp
+// --------------
+// Парсер и сериализация уровней.
+//
+// Загрузка сознательно сделана «ручной», без общей грамматики: формат .lvl
+// маленький, а ошибки должны указывать на конкретную строку. Главная
+// сложность — отличить однострочную функцию ("function sum") от начала
+// пользовательского блока ("function f" + "in/out/body...").
+//
+// Пользовательский блок сначала собирается в сырой FunctionBlock, а
+// компилируется отдельно в Function.cpp. Так парсер не зависит от runtime.
 #include "LevelStore.h"
 
 #include <algorithm>
@@ -11,10 +22,14 @@ namespace levelstore {
 namespace {
 
 bool isBlockKey(const std::string& key) {
+    // Ключи, которые могут идти только внутри блока function ... end.
     return key == "description" || key == "in" || key == "out" || key == "use" ||
            key == "body";
 }
 
+// Lookahead: является ли строка index началом блока, а не однострочной
+// функцией? Пропускаем пустые строки и комментарии — они не должны ломать
+// определение блока.
 bool startsBlock(const std::vector<std::string>& lines, std::size_t index) {
     for (std::size_t i = index + 1; i < lines.size(); ++i) {
         std::string line = helper::trim(lines[i]);
@@ -43,6 +58,9 @@ bool parseInputTypeToken(const std::string& text, ValueType& type,
 
 bool parseFunctionBlock(const std::vector<std::string>& lines, std::size_t start,
                         FunctionBlock& block, std::size_t& next, std::string& error) {
+    // Разбираем только структуру: имена, параметры, выходы, use/body-строки.
+    // Семантическая проверка (типы, уникальность, присваивания) — в
+    // compileFunctionBlocks, чтобы одинаково работать для .lvl и .fn.
     std::vector<std::string> header = helper::wordsFromString(helper::trim(lines[start]));
     block = FunctionBlock{};
     block.name = header[1];
@@ -60,6 +78,9 @@ bool parseFunctionBlock(const std::vector<std::string>& lines, std::size_t start
             break;
         }
         if (inBody) {
+            // В теле строки не разбираются на ключи: это может быть любое
+            // присваивание, включая имя, похожее на ключ. Комментарии уже
+            // отфильтрованы выше и в тело не попадают.
             block.bodyLines.push_back(line);
             continue;
         }
@@ -75,6 +96,7 @@ bool parseFunctionBlock(const std::vector<std::string>& lines, std::size_t start
             }
             ParamDef param;
             param.name = words[1];
+            // Двоеточие необязательно: "in n natural" тоже допустимо.
             if (!param.name.empty() && param.name.back() == ':')
                 param.name.pop_back();
             if (param.name.empty()) {
@@ -127,6 +149,8 @@ bool validName(const std::string& name) {
 }  // namespace
 
 bool load(const std::string& path, LevelData& out, std::string& error) {
+    // readFile() возвращает пустую строку и для отсутствующего, и для пустого
+    // файла. fileExists() позволяет различить эти случаи для диагностики.
     std::string text = helper::readFile(path);
     if (text.empty() && !helper::fileExists(path)) {
         error = "файл не найден: " + path;
@@ -134,6 +158,8 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
     }
     out = LevelData{};
     bool haveNumbers = false, haveAnswer = false;
+    // Пользовательские блоки копятся отдельно: алиасы и перегрузки нужно
+    // компилировать, когда известны все функции уровня.
     std::vector<FunctionBlock> customBlocks;
     std::set<std::string> names;
     std::vector<std::string> lines = helper::splitLines(text);
@@ -146,6 +172,7 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
         const std::string& key = words[0];
 
         if (key == "number") {
+            // number <тип> <значение> [as <имя>]
             if (words.size() != 3 && words.size() != 5) {
                 error = "ожидается 'number <тип> <значение> [as <имя>]': " + line;
                 return false;
@@ -227,6 +254,7 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
             }
             if (words.size() >= 4 && (words[2] == "file" || words[2] == "fn")) {
                 // function myfn file myfn  -> data/functions/myfn.fn
+                // Путь к data вычисляется от самого .lvl, а не от cwd.
                 std::filesystem::path levelFile(path);
                 std::string dataDir =
                     levelFile.parent_path().parent_path().string();
@@ -242,6 +270,8 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
                 }
                 std::vector<std::string> functionLines =
                     helper::splitLines(functionText);
+                // В .fn разрешены комментарии и пустые строки до заголовка;
+                // берем первый function как начало блока.
                 std::size_t start = functionLines.size();
                 for (std::size_t j = 0; j < functionLines.size(); ++j) {
                     std::vector<std::string> header = helper::wordsFromString(
@@ -262,12 +292,15 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
                 block.name = words[1];
                 customBlocks.push_back(std::move(block));
             } else if (words.size() == 2 && startsBlock(lines, i)) {
+                // Многострочный блок: забираем его целиком и перепрыгиваем
+                // через end, чтобы внешний цикл не разбирал строки тела.
                 FunctionBlock block;
                 std::size_t next = 0;
                 if (!parseFunctionBlock(lines, i, block, next, error)) return false;
                 customBlocks.push_back(std::move(block));
                 i = next - 1;
             } else {
+                // Однострочная функция: известная или "function A unknown mul".
                 const std::string& fname = words[1];
                 if (words.size() >= 4 && words[2] == "unknown") {
                     out.functions.push_back(makeUnknownFunction(fname, words[3]));
@@ -285,6 +318,8 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
         error = "уровень неполный (нужны number/numbers и answer)";
         return false;
     }
+    // Компиляция после чтения всех строк: пользовательские функции могут
+    // ссылаться друг на друга и на функции, объявленные позже.
     if (!customBlocks.empty()) {
         if (!compileFunctionBlocks(customBlocks, out.functions, error)) return false;
     }
@@ -308,6 +343,8 @@ bool load(const std::string& path, LevelData& out, std::string& error) {
 }
 
 bool save(const std::string& path, const LevelData& data) {
+    // Сохраняем в старом компактном виде, только если это не потеряет
+    // информацию: все числа integer, имён нет. Иначе — типизированные строки.
     std::string content;
     content += "# func(math) level " + std::to_string(data.number) + "\n";
 
@@ -353,6 +390,8 @@ std::string levelPath(const std::string& dataDir, int number) {
 }
 
 std::vector<int> listLevelNumbers(const std::string& dataDir) {
+    // Интересуют только regular files вида level<число>.lvl; остальные файлы
+    // (включая временные и .txt) игнорируются.
     std::vector<int> result;
     std::string dir = dataDir + "/levels";
     std::error_code ec;

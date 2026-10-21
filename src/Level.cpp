@@ -1,3 +1,14 @@
+// Level.cpp
+// ---------
+// Прохождение одного уровня: набор чисел, команды, разбор префиксных
+// выражений, история/откат и подсказки.
+//
+// Ключевой инвариант: pool_ — мультимножество PoolItem. Ошибка при разборе
+// выражения не меняет pool_: applyExpression работает с копией и фиксирует
+// изменения только после успешного разбора.
+//
+// Имена чисел — только метки. Решатель и сравнение цели работают со
+// значениями, поэтому имя не влияет на достижимость.
 #include "Level.h"
 
 #include <algorithm>
@@ -14,6 +25,7 @@
 namespace {
 
 std::vector<Num> valuesOf(const std::vector<PoolItem>& pool) {
+    // Решатель и проверка цели не должны видеть имена.
     std::vector<Num> result;
     result.reserve(pool.size());
     for (const PoolItem& item : pool) result.push_back(item.value);
@@ -27,6 +39,8 @@ bool allSameType(const std::vector<Num>& values, ValueType type) {
 }
 
 ValueType defaultType(const std::vector<Num>& values) {
+    // Тип для голых литералов в calc: если набор однороден, используем его
+    // тип, иначе integer (самый широкий из поддерживаемых).
     if (!values.empty() && allSameType(values, values.front().type()))
         return values.front().type();
     return ValueType::Integer;
@@ -39,6 +53,9 @@ bool hasNames(const std::vector<PoolItem>& pool) {
 }
 
 bool showTypesForPool(const std::vector<PoolItem>& pool) {
+    // Показываем типы, если набор смешанный или если есть имена natural:
+    // "n=2" без типа читалось бы как integer. Для чистого integer-набора
+    // суффикс не нужен.
     std::vector<Num> values = valuesOf(pool);
     bool mixed = !values.empty() && !allSameType(values, ValueType::Integer) &&
                  !allSameType(values, ValueType::Natural);
@@ -78,6 +95,10 @@ std::string joinWords(const std::vector<std::string>& words, std::size_t from = 
 
 bool parseNumberToken(const std::string& token, Num& value, bool& typed,
                       std::string& error) {
+    // Форматы: "2" (integer), "natural=2", "integer=-3".
+    // Ошибка заполняется только для похожего на литерал токена; если это
+    // просто слово, возвращаем false с пустым error, и вызывающий код
+    // попробует имя/функцию.
     std::size_t eq = token.find('=');
     if (eq != std::string::npos) {
         ValueType type;
@@ -115,6 +136,7 @@ std::string ambiguousNumberMessage(long long value) {
 }  // namespace
 
 Level::Level(LevelData data, bool tutorial) : data_(std::move(data)), tutorial_(tutorial) {
+    // names короче numbers допустимы: отсутствующее имя — пустая строка.
     for (std::size_t i = 0; i < data_.numbers.size(); ++i) {
         PoolItem item;
         item.value = data_.numbers[i];
@@ -122,6 +144,8 @@ Level::Level(LevelData data, bool tutorial) : data_(std::move(data)), tutorial_(
         pool_.push_back(item);
     }
     original_ = pool_;
+    // stack_ всегда содержит хотя бы начальное состояние: back не должен
+    // откатывать ниже него.
     stack_.push_back(pool_);
 }
 
@@ -146,6 +170,8 @@ void Level::printFunctions() const {
 }
 
 void Level::printHeader() const {
+    // Заголовок и тип набора выводятся один раз при входе/сбросе. Тип ответа
+    // показываем, только если он отличается от типа набора — иначе это шум.
     std::cout << data_.title << std::endl;
     std::vector<Num> values = valuesOf(pool_);
     if (!values.empty() && allSameType(values, ValueType::Natural)) {
@@ -230,6 +256,8 @@ void Level::printHistory() const {
 }
 
 void Level::restart() {
+    // reset возвращает и набор, и историю, и флаг завершения. tutorial_ не
+    // сбрасывается: обучение показывается один раз за запуск.
     pool_ = original_;
     stack_.clear();
     stack_.push_back(pool_);
@@ -240,6 +268,8 @@ void Level::restart() {
 }
 
 void Level::goBack() {
+    // stack_ хранит снимки после каждого успешного хода, поэтому back — это
+    // просто откат к предыдущему снимку. История синхронизирована с ним.
     if (stack_.size() <= 1) {
         std::cout << "= Нет хода назад!" << std::endl;
         return;
@@ -255,6 +285,9 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
                            bool consumeFromSet, std::vector<PoolItem>& pool,
                            ValueType literalType, std::vector<Num>& result,
                            std::string& error) const {
+    // Рекурсивный разбор префиксной записи. Аргументы функции набираются
+    // значениями: вложенный вызов с потоком может дать сразу несколько
+    // значений (mul primes 77). Поэтому цикл ниже добавляет part целиком.
     if (pos >= words.size()) {
         error = "недостаточно аргументов!";
         return false;
@@ -283,6 +316,7 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
         try {
             result = function->use(args, &data_.functions);
         } catch (const std::exception& e) {
+            // Ошибка домена/типа — обычное сообщение игроку, не падение.
             error = e.what();
             return false;
         }
@@ -299,7 +333,6 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
             return true;
         }
     }
-
     Num number;
     bool typed = false;
     if (!parseNumberToken(token, number, typed, error)) {
@@ -322,6 +355,7 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
     }
 
     if (typed) {
+        // Типизированный литерал ищет точное совпадение и типа, и значения.
         for (auto it = pool.begin(); it != pool.end(); ++it) {
             if (it->value.same(number)) {
                 result = {it->value};
@@ -334,6 +368,8 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
         return false;
     }
 
+    // Голое число: если в наборе есть 2(natural) и 2(integer), выбор
+    // неоднозначен. Собираем все типы, чтобы дать понятную подсказку.
     std::set<int> types;
     auto found = pool.end();
     for (auto it = pool.begin(); it != pool.end(); ++it) {
@@ -357,6 +393,8 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
 }
 
 void Level::applyExpression(const std::vector<std::string>& words) {
+    // Работаем с копией: если разбор/вычисление упадут, pool_ останется
+    // прежним. Изменения фиксируются только после проверки pos == size.
     std::vector<PoolItem> pool = pool_;
     std::size_t pos = 0;
     std::vector<Num> result;
@@ -372,6 +410,8 @@ void Level::applyExpression(const std::vector<std::string>& words) {
     }
 
     pool_ = std::move(pool);
+    // У результатов нет имён: имя было свойством конкретного числа в наборе,
+    // а не значения вообще.
     for (const Num& value : result) pool_.push_back(PoolItem{value, {}});
 
     const bool showTypes = showTypesForPool(pool_);
@@ -396,11 +436,14 @@ void Level::applyExpression(const std::vector<std::string>& words) {
     history_.push_back(record);
 
     std::vector<Num> current = valuesOf(pool_);
+    // Сравнение с ответом учитывает тип: natural 2 не равен integer 2.
     completed_ = std::find(current.begin(), current.end(), data_.answer) != current.end();
     stack_.push_back(pool_);
 }
 
 void Level::calc(const std::vector<std::string>& words) {
+    // calc повторяет разбор, но с consumeFromSet=false: имена читаются из
+    // копии, литералы создаются, а настоящий набор не меняется.
     std::size_t pos = 1;
     std::vector<PoolItem> pool = pool_;
     std::vector<Num> result;
@@ -426,6 +469,9 @@ void Level::calc(const std::vector<std::string>& words) {
 }
 
 void Level::hint() {
+    // Подсказка — best-effort: решатель ограничен по времени/узлам и может
+    // не найти решение. Показываем только первый ход, чтобы не раскрывать
+    // весь маршрут.
     std::vector<solver::Move> moves;
     std::vector<Num> numbers = valuesOf(pool_);
     if (solver::solve(numbers, data_.functions, data_.answer, moves)) {
@@ -461,6 +507,7 @@ void Level::hint() {
 int Level::turn() {
     // Если нужное число уже в наборе (например, после back/reset или в
     // начальном наборе), уровень сразу пройден — как в старом прототипе.
+    // Это важно для уровней, где ответ совпадает с начальным числом.
     std::vector<Num> current = valuesOf(pool_);
     if (std::find(current.begin(), current.end(), data_.answer) != current.end()) {
         completed_ = true;
@@ -510,6 +557,8 @@ int Level::turn() {
 }
 
 LevelResult Level::play() {
+    // Цикл заканчивается либо победой, либо exit. Возвращаем tutorial_,
+    // чтобы Game сохранил, показывать ли обучение в следующий раз.
     start();
     while (!completed_) {
         int check = turn();

@@ -1,3 +1,13 @@
+// Helper.cpp
+// ----------
+// Строковые и файловые утилиты, общие для всех модулей.
+//
+// Главная особенность — wordsFromString(): она приводит запись в стиле
+// "sum(1, 2)" к префиксной форме "sum 1 2". Игровой парсер работает только
+// со словами, поэтому скобки и запятые здесь просто заменяются пробелами.
+//
+// Файлы читаются и пишутся в бинарном режиме: текст считается UTF-8, а
+// переводы строк не преобразуются платформой. Это важно для round-trip .lvl.
 #include "Helper.h"
 
 #include <algorithm>
@@ -25,7 +35,8 @@ namespace fs = std::filesystem;
 namespace helper {
 
 std::vector<std::string> wordsFromString(const std::string& str) {
-    // 1. Заменяем запятые и скобки на пробелы.
+    // 1. Заменяем запятые и скобки на пробелы. Это совместимость со старым
+    //    Java-синтаксисом; внутри уровня скобки не несут смысла.
     std::string second;
     second.reserve(str.size());
     for (char c : str) {
@@ -71,6 +82,9 @@ std::string stringFromWords(const std::vector<std::string>& words) {
 }
 
 bool parseInt(const std::string& s, long long& out) {
+    // Строгий разбор: после числа не должно остаться символов ("12x" — ошибка).
+    // std::stoll допускает ведущие пробелы, поэтому вызывающий код обычно
+    // передаёт уже обрезанную строку.
     if (s.empty()) return false;
     std::size_t pos = 0;
     try {
@@ -107,6 +121,8 @@ void initConsole() {
 }
 
 void clearScreen() {
+    // Очистка нужна только в интерактивном терминале. Если stdout перенаправлен
+    // (тесты, пайпы), не трогаем поток: иначе вывод становится нечитаемым.
 #if defined(_WIN32)
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -128,6 +144,8 @@ void clearScreen() {
 }
 
 std::string readFile(const std::string& path) {
+    // Отсутствующий файл и пустой файл неразличимы по возвращаемому значению;
+    // вызывающий код при необходимости проверяет fileExists().
     std::ifstream in(path, std::ios::binary);
     if (!in) return std::string();
     std::ostringstream ss;
@@ -136,6 +154,8 @@ std::string readFile(const std::string& path) {
 }
 
 bool writeFile(const std::string& path, const std::string& content) {
+    // Родительские каталоги создаются здесь, чтобы сохранение уровня/функции
+    // не требовало отдельной подготовки директорий.
     fs::path p(path);
     if (p.has_parent_path()) {
         std::error_code ec;
@@ -175,6 +195,8 @@ int filesCount(const std::string& dir) {
 }
 
 std::map<std::string, std::string> readValues(const std::string& path) {
+    // Формат "ключ остаток строки": ключ — первое слово, значение — весь
+    // остаток после него. Используется для data/functions.txt.
     std::map<std::string, std::string> ans;
     std::string text = readFile(path);
     for (const std::string& raw : splitLines(text)) {
@@ -206,6 +228,8 @@ std::string trim(const std::string& s) {
 }
 
 std::vector<std::string> splitLines(const std::string& text) {
+    // Сохраняем CR в конце строки: trim() затем удалит его как пробельный
+    // символ. Так функция одинаково работает с LF и CRLF.
     std::vector<std::string> lines;
     std::string cur;
     for (char c : text) {
@@ -221,6 +245,9 @@ std::vector<std::string> splitLines(const std::string& text) {
 }
 
 std::string resolveDataDir() {
+    // Игра может запускаться из корня репозитория или из build/ рядом с
+    // скопированным data/. Проверяем несколько уровней вверх, но не ищем
+    // data по всему диску.
     std::error_code ec;
     if (fs::is_directory("data", ec)) return "data";
     if (fs::is_directory("../data", ec)) return "../data";

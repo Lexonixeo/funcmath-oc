@@ -1,3 +1,14 @@
+// Solver.cpp
+// ----------
+// Ограниченный поиск в глубину по состояниям набора чисел.
+//
+// Состояние — мультимножество чисел. Ход: выбрать функцию и аргументы,
+// удалить их из набора и добавить результаты. Поиск ищет любую
+// последовательность, приводящую к target.
+//
+// Случайность обрабатывается как ветвление: outcomes() возвращает все
+// возможные результаты, и DFS пробует каждый. Решение, найденное при одном
+// исходе, считается корректным (игрок может повторить попытку).
 #include "Solver.h"
 
 #include <algorithm>
@@ -19,6 +30,8 @@ bool hasUnstable(const std::vector<Fn>& functions) {
 namespace {
 
 // 64-битный хеш мультимножества (порядок не важен).
+// Сортировка делает signature независимой от порядка, а Value::hash учитывает
+// тип, поэтому natural 1 и integer 1 дают разные подписи.
 uint64_t signature(std::vector<Num> values) {
     std::sort(values.begin(), values.end());
     uint64_t h = 1469598103934665603ULL;
@@ -38,16 +51,21 @@ struct Search {
     long long nodes = 0;
     long long nodeLimit;
     long long timeLimitMs;
-    bool aborted = false;
+    bool aborted = false;  // сработал лимит узлов/времени
     std::chrono::steady_clock::time_point start;
+    // dead — состояния, из которых решение уже не найдено.
+    // active — состояния текущего пути; защита от циклов.
     std::unordered_set<uint64_t> dead;
     std::unordered_set<uint64_t> active;
-    std::vector<Move> path;
+    std::vector<Move> path;  // ходы в обратном порядке, разворачиваются в solve
 
     Search(const std::vector<Num>& numbers, const std::vector<Fn>& f, Num t,
            long long nodeLim, long long timeLim)
         : funcs(f), target(t), nodeLimit(nodeLim), timeLimitMs(timeLim),
           start(std::chrono::steady_clock::now()) {
+        // valueBound — эвристика против «взрыва» чисел. Берём максимум из
+        // цели и входа с запасом; это может отсечь экзотическое решение,
+        // поэтому лимит не является доказательством нерешаемости.
         long long maxAbs = std::llabs(t.asLongLong());
         for (const Num& value : numbers) {
             long long current = std::llabs(value.asLongLong());
@@ -61,6 +79,8 @@ struct Search {
     }
 
     bool outOfTime() {
+        // Проверяем время не на каждом узле: chrono::now() дорогой, а 4096
+        // узлов — достаточно мелкий шаг для лимита в сотни миллисекунд.
         if ((nodes & 4095) != 0) return false;
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::steady_clock::now() - start)
@@ -78,7 +98,8 @@ struct Search {
     }
 
     // Применяет функцию к выбранным индексам и добавляет ход в path, если
-    // решение найдено.
+    // решение найдено. directOnly=true — проверить только этот ход, не
+    // уходя в рекурсию (быстрый тест «цель одним ходом»).
     bool tryResults(const std::vector<Num>& numbers, const std::vector<int>& indices,
                     const std::vector<Num>& args, const std::vector<Num>& results,
                     const std::string& fn, bool directOnly = false) {
@@ -101,6 +122,7 @@ struct Search {
                   [](const Num& a, const Num& b) { return b < a; });
 
         if (contains(next, target)) {
+            // path собирается снизу вверх; solve() развернёт его.
             path.push_back(Move{fn, args, results});
             return true;
         }
@@ -117,6 +139,8 @@ struct Search {
         args.reserve(indices.size());
         for (int index : indices) args.push_back(numbers[static_cast<std::size_t>(index)]);
 
+        // Ошибки вычисления (strict natural, деление на ноль, пустой поток)
+        // означают, что этот ход просто недопустим; поиск продолжается.
         if (function.isStable()) {
             std::vector<Num> results;
             try {
@@ -219,12 +243,15 @@ struct Search {
             return false;
         }
 
+        // Одно и то же мультимножество может встретиться разными путями.
+        // dead экономит повторный перебор; active ловит цикл внутри пути.
         uint64_t sig = signature(numbers);
         if (dead.count(sig) || active.count(sig)) return false;
         active.insert(sig);
 
         // Сначала проверяем, нельзя ли получить цель одним ходом. Это
         // позволяет не уходить в глубокий перебор, если решение уже рядом.
+        // Второй проход — полный DFS по всем допустимым ходам.
         for (const Fn& function : funcs) {
             if (tryFunction(numbers, function, true)) return true;
             if (aborted) {
@@ -252,6 +279,8 @@ struct Search {
 bool solve(const std::vector<Num>& numbers, const std::vector<Fn>& functions,
            Num target, std::vector<Move>& moves, long long nodeLimit,
            long long timeLimitMs) {
+    // Канонический порядок входа: одинаковые мультимножества должны давать
+    // одинаковые signature и одинаковый порядок перебора.
     std::vector<Num> initial = numbers;
     std::sort(initial.begin(), initial.end(),
               [](const Num& a, const Num& b) { return b < a; });

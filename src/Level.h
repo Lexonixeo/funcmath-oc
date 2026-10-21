@@ -7,8 +7,8 @@
 #include "LevelStore.h"
 
 struct LevelResult {
-    bool tutorial;
-    bool completed;
+    bool tutorial;   // показывать ли обучение в следующий раз
+    bool completed;  // пройден ли уровень
 };
 
 // Число в наборе вместе с необязательным именем. Имя — это метка для
@@ -25,10 +25,10 @@ public:
 
 private:
     LevelData data_;
-    std::vector<PoolItem> pool_;
-    std::vector<PoolItem> original_;
-    std::vector<std::vector<PoolItem>> stack_;
-    std::vector<std::string> history_;
+    std::vector<PoolItem> pool_;      // текущий набор
+    std::vector<PoolItem> original_;  // начальный набор для reset
+    std::vector<std::vector<PoolItem>> stack_;  // снимки для back
+    std::vector<std::string> history_;           // строки ходов
     bool tutorial_;
     bool completed_ = false;
 
@@ -50,11 +50,17 @@ private:
     // Рекурсивно разбирает префиксное выражение. consumeFromSet=true —
     // аргументы-числа берутся из pool и удаляются из него; false — числа
     // создаются по literalType (режим calc).
+    //
+    // pos сдвигается на разобранные слова. result — значения, которые вернуло
+    // выражение: их может быть несколько (поток), и родительская функция
+    // сама решает, сколько из них использовать.
     bool evalExpression(const std::vector<std::string>& words, std::size_t& pos,
                         bool consumeFromSet, std::vector<PoolItem>& pool,
                         ValueType literalType, std::vector<Num>& result,
                         std::string& error) const;
+    // Применяет выражение к настоящему набору; при ошибке набор не меняется.
     void applyExpression(const std::vector<std::string>& words);
+    // Вычисляет выражение на копии набора, не меняя pool_/history_.
     void calc(const std::vector<std::string>& words);
 
     int turn();  // -1 — выход из уровня

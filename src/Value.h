@@ -21,13 +21,17 @@ enum class ValueType {
     Natural,
     Integer,
     // Пока не реализованы, но перечислены, чтобы формат и реестр функций
-    // можно было расширять без смены базовых типов.
+    // можно было расширять без смены базовых типов. Порядок enum участвует
+    // в Value::operator<, поэтому новые типы лучше добавлять в конец.
     Rational,
     Real,
     Complex,
     Gaussian,
 };
 
+// Обёртки нужны, чтобы variant различал natural и integer с одинаковым
+// числовым значением. Обе структуры намеренно тривиальны: копирование и
+// сравнение должны быть дешёвыми для решателя.
 struct Natural {
     long long value = 0;
 };
@@ -68,9 +72,13 @@ inline bool valueTypeFromName(const std::string& name, ValueType& out) {
 
 class Value {
 public:
+    // Голое целое и значение по умолчанию — integer: так старые уровни и
+    // bare-литералы в телах функций сохраняют прежнюю семантику.
     Value() : data_(Integer{0}) {}
     Value(long long value) : data_(Integer{value}) {}
 
+    // Единственная точка создания natural: проверка домена выполняется здесь,
+    // чтобы отрицательное natural не могло появиться даже случайно.
     static Value natural(long long value) {
         if (value < 0)
             throw std::domain_error("natural не может быть отрицательным");
@@ -78,6 +86,8 @@ public:
     }
     static Value integer(long long value) { return Value(Integer{value}); }
 
+    // Создание по динамическому типу (парсеры .lvl, .fn и литералов).
+    // Для ещё не реализованных типов бросает invalid_argument.
     static Value of(ValueType type, long long value) {
         switch (type) {
             case ValueType::Natural:
@@ -108,6 +118,7 @@ public:
     std::string typeName() const { return valueTypeName(type()); }
 
     // Сравнение с учётом типа: natural 1 и integer 1 — разные значения.
+    // Именно это сравнение использует решатель и проверка цели уровня.
     bool same(const Value& other) const {
         return type() == other.type() && asLongLong() == other.asLongLong();
     }
@@ -116,12 +127,17 @@ public:
     bool operator!=(const Value& other) const { return !same(other); }
 
     // Полный порядок нужен для сортировки в сигнатуре состояния решателя.
+    // Сначала сравнивается величина, затем тип; это не «математический»
+    // порядок, а технический, чтобы одинаковые мультимножества сортировались
+    // одинаково.
     bool operator<(const Value& other) const {
         if (asLongLong() != other.asLongLong())
             return asLongLong() < other.asLongLong();
         return static_cast<int>(type()) < static_cast<int>(other.type());
     }
 
+    // Хеш обязан согласовываться с same(): тип входит в хеш, иначе
+    // natural 1 и integer 1 могли бы считаться одним состоянием в решателе.
     uint64_t hash() const {
         uint64_t h = static_cast<uint64_t>(asLongLong());
         h ^= static_cast<uint64_t>(type()) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
@@ -137,6 +153,9 @@ private:
     std::variant<Natural, Integer> data_;
 };
 
+// Числовые сравнения ниже игнорируют тип: они нужны для проверок вида
+// «аргумент равен нулю» и для отображения. Для семантики значений
+// используйте Value::same().
 inline bool operator==(const Value& value, long long number) {
     return value.asLongLong() == number;
 }

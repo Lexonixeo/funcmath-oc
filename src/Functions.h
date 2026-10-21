@@ -22,6 +22,9 @@ using Op = std::function<Num(Num, Num)>;
 
 // Описание результатов: фиксированный кортеж и, возможно, поток в конце.
 // Например, divmod -> fixed {integer, natural}; primes -> stream natural.
+//
+// Инвариант: поток всегда последний, поэтому по одному ResultSpec нельзя
+// выразить два независимых потока. Это ограничение текущей игровой модели.
 struct ResultSpec {
     std::vector<ValueType> fixed;
     bool hasStream = false;
@@ -32,16 +35,22 @@ struct ResultSpec {
 
 // Сигнатура функции: типы аргументов и результатов. Integer принимает и
 // natural (расширяющее преобразование), natural — только natural.
+// Функция может иметь несколько сигнатур; выбор — в Function.cpp.
 struct Signature {
     std::vector<ValueType> args;
     ResultSpec results;
 };
 
 // Можно ли передать значение типа from туда, где ожидается to.
+// Сейчас это только точное совпадение и natural -> integer.
 bool canPass(ValueType from, ValueType to);
 
 struct FunctionSpec {
+    // Все допустимые варианты аргументов. Для бинарной арифметики обычно
+    // две сигнатуры: natural×natural и integer×integer.
     std::vector<Signature> signatures;
+    // Стабильная функция детерминирована. Нестабильные перечисляют исходы
+    // через allOutcomes, чтобы решатель мог перебрать случайность.
     bool stable = true;
     // Применение к аргументам. Может бросить исключение (strict natural,
     // деление на ноль и т.п.).
@@ -53,7 +62,8 @@ struct FunctionSpec {
     int arity() const;
 };
 
-// Реестр: имя поведения -> описание функции.
+// Реестр: имя поведения -> описание функции. Строится один раз при первом
+// обращении; потоки не изменяют его, поэтому ссылки на FunctionSpec стабильны.
 const std::map<std::string, FunctionSpec>& registry();
 const FunctionSpec* findSpec(const std::string& name);
 bool hasFunction(const std::string& name);
@@ -72,7 +82,9 @@ std::string describe(const std::string& name);
 // Стабильна ли функция (детерминирована). rand/sumr/subr/mulr/divr — нет.
 bool isStable(const std::string& name);
 
-// Применяет функцию, проверяя число и типы аргументов.
+// Применяет функцию, проверяя число и типы аргументов. Бросает
+// runtime_error/domain_error; вызывающий код (Level, Function, Solver)
+// превращает это в сообщение или отбрасывает ход.
 std::vector<Num> apply(const std::string& name, const std::vector<Num>& args);
 
 // Возможные результаты функции: один набор для стабильной, несколько для

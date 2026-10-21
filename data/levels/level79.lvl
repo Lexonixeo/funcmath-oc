@@ -1,0 +1,26 @@
+# func(math) level 79
+# Тема: простые множители и пользовательские функции.
+# split(n) возвращает первый простой множитель и поток остальных.
+# Соберите 42 из множителей числа 84: 42 = 3 * 7 * 2.
+# Решение: split n -> 2 2 3 7; mul 3 7 -> 21; double 21 -> 42.
+
+number natural 84 as n
+answer natural 42
+function split
+  description split(n) — первый простой множитель и остальные
+  in n: natural
+  out firstFactor: natural
+  out restFactors: natural...
+  body
+    factors = primes n
+    firstFactor = first factors
+    restFactors = rest factors
+end
+function double
+  description double(n) — удвоить natural-число
+  in n: natural
+  out r: natural
+  body
+    r = mul n natural=2
+end
+function mul

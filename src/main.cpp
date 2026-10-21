@@ -25,6 +25,8 @@ namespace {
 
 int runCheck(const std::string& dataDir, int onlyLevel, long long nodeLimit,
              long long timeLimitMs) {
+    // --check не является доказательством нерешаемости: solver ограничен.
+    // Код возврата 0 только если все проверенные уровни решены без ошибок.
     std::vector<int> levels = levelstore::listLevelNumbers(dataDir);
     if (onlyLevel > 0) {
         if (std::find(levels.begin(), levels.end(), onlyLevel) != levels.end())
@@ -73,6 +75,9 @@ int runCheck(const std::string& dataDir, int onlyLevel, long long nodeLimit,
 }  // namespace
 
 int main(int argc, char** argv) {
+    // Аргументы разбираются вручную: режимы простые, а зависимостей от
+    // парсера командной строки проект не хочет. Число без флага — номер
+    // уровня для --check.
     std::vector<std::string> args;
     for (int i = 1; i < argc; ++i) args.emplace_back(argv[i]);
 
@@ -99,6 +104,8 @@ int main(int argc, char** argv) {
 
     helper::initConsole();
 
+    // data/ ищется рядом с cwd или на уровень выше — чтобы бинарник из build/
+    // работал без ручного копирования данных.
     std::string dataDir = helper::resolveDataDir();
     fmath::loadDescriptions(dataDir + "/functions.txt");
 
