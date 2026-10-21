@@ -4,6 +4,7 @@
 // Режимы запуска:
 //   funcmath            обычная игра
 //   funcmath --author   интерактивное создание нового уровня
+//   funcmath --function интерактивный редактор пользовательской функции
 //   funcmath --check     проверить, что все уровни решаемы
 
 #include <algorithm>
@@ -75,7 +76,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> args;
     for (int i = 1; i < argc; ++i) args.emplace_back(argv[i]);
 
-    bool author = false, check = false;
+    bool author = false, check = false, function = false;
     int onlyLevel = -1;
     long long nodeLimit = 1000000, timeLimitMs = 1000;
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -83,6 +84,8 @@ int main(int argc, char** argv) {
         long long v;
         if (a == "--author") {
             author = true;
+        } else if (a == "--function") {
+            function = true;
         } else if (a == "--check") {
             check = true;
         } else if (a == "--nodes" && i + 1 < args.size() && helper::parseInt(args[++i], v)) {
@@ -102,6 +105,10 @@ int main(int argc, char** argv) {
     if (check) return runCheck(dataDir, onlyLevel, nodeLimit, timeLimitMs);
     if (author) {
         levelgen::authorLevel(dataDir);
+        return 0;
+    }
+    if (function) {
+        levelgen::functionEditor(dataDir);
         return 0;
     }
 

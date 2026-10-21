@@ -20,11 +20,25 @@ namespace fmath {
 
 using Op = std::function<Num(Num, Num)>;
 
-// Сигнатура функции: типы аргументов. Integer принимает и natural
-// (расширяющее преобразование), natural — только natural.
+// Описание результатов: фиксированный кортеж и, возможно, поток в конце.
+// Например, divmod -> fixed {integer, natural}; primes -> stream natural.
+struct ResultSpec {
+    std::vector<ValueType> fixed;
+    bool hasStream = false;
+    ValueType streamType = ValueType::Integer;
+
+    int minCount() const { return static_cast<int>(fixed.size()); }
+};
+
+// Сигнатура функции: типы аргументов и результатов. Integer принимает и
+// natural (расширяющее преобразование), natural — только natural.
 struct Signature {
     std::vector<ValueType> args;
+    ResultSpec results;
 };
+
+// Можно ли передать значение типа from туда, где ожидается to.
+bool canPass(ValueType from, ValueType to);
 
 struct FunctionSpec {
     std::vector<Signature> signatures;

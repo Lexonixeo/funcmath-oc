@@ -1,6 +1,8 @@
 #include "LevelGenerator.h"
 
 #include <algorithm>
+#include <exception>
+#include <filesystem>
 #include <iostream>
 #include <random>
 
@@ -16,6 +18,59 @@ const char* unknownNames[] = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
 int randInt(int lo, int hi) {
     if (lo > hi) std::swap(lo, hi);
     return static_cast<int>(fmath::randBetween(lo, hi));
+}
+
+bool parseArgument(const std::string& token, Num& value, std::string& error) {
+    std::size_t eq = token.find('=');
+    if (eq != std::string::npos) {
+        ValueType type;
+        if (!valueTypeFromName(token.substr(0, eq), type)) {
+            error = "неизвестный тип в литерале: " + token;
+            return false;
+        }
+        long long number;
+        if (!helper::parseInt(token.substr(eq + 1), number)) {
+            error = "некорректное число в литерале: " + token;
+            return false;
+        }
+        try {
+            value = Value::of(type, number);
+        } catch (const std::exception& e) {
+            error = e.what();
+            return false;
+        }
+        return true;
+    }
+    long long number;
+    if (!helper::parseInt(token, number)) {
+        error = "аргумент должен быть числом: " + token;
+        return false;
+    }
+    value = Value::integer(number);
+    return true;
+}
+
+void printFunctionHelp() {
+    std::cout << "Команды редактора функции:\n"
+              << "  name <имя>                 имя функции\n"
+              << "  description <текст>        описание для игрока\n"
+              << "  in <имя>: <тип>            вход (natural/integer)\n"
+              << "  out <имя>: <тип>           выход; тип с ... — поток\n"
+              << "  use <алиас> = <функция> <типы> -> <результаты>\n"
+              << "  body <присваивание>        добавить строку тела\n"
+              << "  body                       читать тело до строки end\n"
+              << "  list                       показать блок\n"
+              << "  validate                   проверить блок\n"
+              << "  test <аргументы>           вычислить функцию\n"
+              << "  save                       сохранить в data/functions/<имя>.fn\n"
+              << "  clear                      начать заново\n"
+              << "  exit                       выйти\n";
+}
+
+std::string restOf(const std::string& line, const std::string& key) {
+    std::size_t pos = line.find(key);
+    if (pos == std::string::npos) return {};
+    return helper::trim(line.substr(pos + key.size()));
 }
 
 }  // namespace
@@ -200,6 +255,157 @@ void authorLevel(const std::string& dataDir) {
         std::cout << "Уровень " << data.number << " сохранён: " << path << std::endl;
     } else {
         std::cout << "Не удалось сохранить уровень." << std::endl;
+    }
+}
+
+void functionEditor(const std::string& dataDir) {
+    std::cout << "=== Редактор пользовательской функции ===" << std::endl;
+    printFunctionHelp();
+
+    FunctionBlock block;
+    std::string line;
+    while (true) {
+        std::cout << "fn> ";
+        if (!std::getline(std::cin, line)) break;
+        line = helper::trim(line);
+        if (line.empty()) continue;
+        std::vector<std::string> words = helper::wordsFromString(line);
+        const std::string& command = words[0];
+
+        if (command == "exit" || command == "quit") {
+            break;
+        } else if (command == "help") {
+            printFunctionHelp();
+        } else if (command == "name") {
+            if (words.size() < 2) {
+                std::cout << "Нужно имя функции." << std::endl;
+            } else {
+                block.name = words[1];
+            }
+        } else if (command == "description") {
+            block.description = restOf(line, command);
+        } else if (command == "in") {
+            if (words.size() != 3) {
+                std::cout << "Ожидается: in <имя>: <тип>" << std::endl;
+                continue;
+            }
+            ParamDef param;
+            param.name = words[1];
+            if (!param.name.empty() && param.name.back() == ':')
+                param.name.pop_back();
+            if (!valueTypeFromName(words[2], param.type)) {
+                std::cout << "Неизвестный тип: " << words[2] << std::endl;
+                continue;
+            }
+            block.params.push_back(param);
+        } else if (command == "out") {
+            if (words.size() != 3) {
+                std::cout << "Ожидается: out <имя>: <тип>" << std::endl;
+                continue;
+            }
+            OutputDef output;
+            output.name = words[1];
+            if (!output.name.empty() && output.name.back() == ':')
+                output.name.pop_back();
+            std::string error;
+            if (!parseResultType(words[2], output.spec, error)) {
+                std::cout << error << std::endl;
+                continue;
+            }
+            block.outputs.push_back(output);
+        } else if (command == "use") {
+            block.useLines.push_back(restOf(line, command));
+        } else if (command == "body") {
+            std::string rest = restOf(line, command);
+            if (!rest.empty()) {
+                block.bodyLines.push_back(rest);
+            } else {
+                std::cout << "Вводите строки тела, пока не введёте end." << std::endl;
+                while (true) {
+                    std::cout << "body> ";
+                    if (!std::getline(std::cin, line)) break;
+                    std::string body = helper::trim(line);
+                    if (body == "end") break;
+                    if (!body.empty()) block.bodyLines.push_back(body);
+                }
+            }
+        } else if (command == "list") {
+            if (block.name.empty() && block.params.empty() && block.outputs.empty() &&
+                block.bodyLines.empty()) {
+                std::cout << "(пусто)" << std::endl;
+            } else {
+                std::cout << formatFunctionBlock(block);
+            }
+        } else if (command == "clear") {
+            block = FunctionBlock{};
+            std::cout << "Блок очищен." << std::endl;
+        } else if (command == "validate") {
+            std::string error;
+            if (validateFunctionBlock(block, error))
+                std::cout << "OK" << std::endl;
+            else
+                std::cout << "Ошибка: " << error << std::endl;
+        } else if (command == "test") {
+            std::vector<Num> args;
+            std::string error;
+            bool ok = true;
+            for (std::size_t i = 1; i < words.size(); ++i) {
+                Num value;
+                if (!parseArgument(words[i], value, error)) {
+                    ok = false;
+                    break;
+                }
+                args.push_back(value);
+            }
+            if (!ok) {
+                std::cout << "Ошибка: " << error << std::endl;
+                continue;
+            }
+            std::vector<Fn> functions;
+            std::vector<FunctionBlock> blocks = {block};
+            if (!compileFunctionBlocks(blocks, functions, error)) {
+                std::cout << "Ошибка: " << error << std::endl;
+                continue;
+            }
+            const Fn* function = nullptr;
+            for (const Fn& candidate : functions)
+                if (candidate.isCustom()) function = &candidate;
+            if (function == nullptr) {
+                std::cout << "Ошибка: функция не собрана." << std::endl;
+                continue;
+            }
+            try {
+                std::vector<Num> results = function->use(args, &functions);
+                std::cout << "=";
+                if (results.empty()) {
+                    std::cout << " (пусто)";
+                } else {
+                    for (const Num& value : results)
+                        std::cout << " " << value.str() << "(" << value.typeName() << ")";
+                }
+                std::cout << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "Ошибка: " << e.what() << std::endl;
+            }
+        } else if (command == "save") {
+            std::string error;
+            if (block.name.empty()) {
+                std::cout << "Сначала задайте имя." << std::endl;
+                continue;
+            }
+            if (!validateFunctionBlock(block, error)) {
+                std::cout << "Ошибка: " << error << std::endl;
+                continue;
+            }
+            std::filesystem::create_directories(dataDir + "/functions");
+            std::string path = dataDir + "/functions/" + block.name + ".fn";
+            if (helper::writeFile(path, formatFunctionBlock(block)))
+                std::cout << "Сохранено: " << path << std::endl;
+            else
+                std::cout << "Не удалось сохранить " << path << std::endl;
+        } else {
+            std::cout << "Неизвестная команда. Введите help." << std::endl;
+        }
     }
 }
 

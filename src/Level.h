@@ -11,6 +11,13 @@ struct LevelResult {
     bool completed;
 };
 
+// Число в наборе вместе с необязательным именем. Имя — это метка для
+// читаемости и выбора: решатель по-прежнему работает только со значениями.
+struct PoolItem {
+    Num value;
+    std::string name;
+};
+
 class Level {
 public:
     Level(LevelData data, bool tutorial);
@@ -18,9 +25,9 @@ public:
 
 private:
     LevelData data_;
-    std::vector<Num> numbers_;
-    std::vector<Num> original_;
-    std::vector<std::vector<Num>> stack_;
+    std::vector<PoolItem> pool_;
+    std::vector<PoolItem> original_;
+    std::vector<std::vector<PoolItem>> stack_;
     std::vector<std::string> history_;
     bool tutorial_;
     bool completed_ = false;
@@ -44,7 +51,7 @@ private:
     // аргументы-числа берутся из pool и удаляются из него; false — числа
     // создаются по literalType (режим calc).
     bool evalExpression(const std::vector<std::string>& words, std::size_t& pos,
-                        bool consumeFromSet, std::vector<Num>& pool,
+                        bool consumeFromSet, std::vector<PoolItem>& pool,
                         ValueType literalType, std::vector<Num>& result,
                         std::string& error) const;
     void applyExpression(const std::vector<std::string>& words);

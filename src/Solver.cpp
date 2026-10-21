@@ -120,7 +120,7 @@ struct Search {
         if (function.isStable()) {
             std::vector<Num> results;
             try {
-                results = function.use(args);
+                results = function.use(args, &funcs);
             } catch (...) {
                 return false;
             }
@@ -130,7 +130,7 @@ struct Search {
         // Случайная функция: перебираем все возможные наборы результатов.
         std::vector<std::vector<Num>> all;
         try {
-            all = function.outcomes(args);
+            all = function.outcomes(args, &funcs);
         } catch (...) {
             return false;
         }

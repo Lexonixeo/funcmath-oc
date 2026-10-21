@@ -259,6 +259,12 @@ const std::map<std::string, Op>& ops() {
     return registry;
 }
 
+bool canPass(ValueType from, ValueType to) {
+    if (from == to) return true;
+    // Integer принимает natural: расширяющее преобразование.
+    return from == ValueType::Natural && to == ValueType::Integer;
+}
+
 void loadDescriptions(const std::string& path) {
     descriptionMap() = helper::readValues(path);
 }
@@ -350,9 +356,7 @@ namespace {
 bool matchesSignature(const Signature& signature, const std::vector<Num>& args) {
     if (signature.args.size() != args.size()) return false;
     for (std::size_t i = 0; i < args.size(); ++i) {
-        if (signature.args[i] == ValueType::Natural && !args[i].isNatural())
-            return false;
-        // Integer принимает и natural: это расширяющее преобразование.
+        if (!canPass(args[i].type(), signature.args[i])) return false;
     }
     return true;
 }
@@ -381,9 +385,21 @@ std::vector<Num> factorize(const Num& number) {
 std::map<std::string, FunctionSpec> buildRegistry() {
     std::map<std::string, FunctionSpec> result;
 
+    const auto one = [](ValueType type) {
+        ResultSpec spec;
+        spec.fixed.push_back(type);
+        return spec;
+    };
+    const auto stream = [](ValueType type) {
+        ResultSpec spec;
+        spec.hasStream = true;
+        spec.streamType = type;
+        return spec;
+    };
+
     std::vector<Signature> binarySignatures = {
-        Signature{{ValueType::Natural, ValueType::Natural}},
-        Signature{{ValueType::Integer, ValueType::Integer}},
+        Signature{{ValueType::Natural, ValueType::Natural}, one(ValueType::Natural)},
+        Signature{{ValueType::Integer, ValueType::Integer}, one(ValueType::Integer)},
     };
 
     for (const auto& entry : buildOps()) {
@@ -412,8 +428,8 @@ std::map<std::string, FunctionSpec> buildRegistry() {
 
     FunctionSpec primes;
     primes.signatures = {
-        Signature{{ValueType::Natural}},
-        Signature{{ValueType::Integer}},
+        Signature{{ValueType::Natural}, stream(ValueType::Natural)},
+        Signature{{ValueType::Integer}, stream(ValueType::Integer)},
     };
     primes.stable = true;
     primes.apply = [](const std::vector<Num>& args) {

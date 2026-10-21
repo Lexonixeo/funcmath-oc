@@ -26,6 +26,7 @@ struct LevelData {
     int number = -1;            // номер уровня (-1 для случайного)
     std::string title;          // заголовок, напр. "Уровень 5."
     std::vector<Num> numbers;
+    std::vector<std::string> names;  // необязательные имена чисел (пустая строка = нет)
     std::vector<Fn> functions;
     Num answer = Num(0);
 };
