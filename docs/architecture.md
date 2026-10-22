@@ -372,13 +372,20 @@ DFS:
 ## 12. Проверка изменений
 
 ```sh
-./build.bat
-./funcmath --check
-./funcmath --check 79
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-Полный `--check` может вернуть код `1` из-за известного ограничения DFS на
-уровне 18. Для одного уровня код `0` означает, что решение найдено.
+`ctest` запускает `tests/expression_tests.cpp` и по одному тесту на каждый
+уровень. Уровень 18 пока исключён: полный `--check` возвращает код `1` из-за
+известного ограничения DFS. Для одного уровня код `0` означает, что решение
+найдено.
+
+CI в `.github/workflows/ci.yml` повторяет эти шаги на Windows/MSVC,
+Linux/GCC и macOS/AppleClang. Релизный workflow
+`.github/workflows/release.yml` запускается по тегу `v*`, собирает архивы
+через CPack и прикрепляет их к GitHub Release.
 
 Полезные smoke-тесты:
 

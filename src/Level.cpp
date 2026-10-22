@@ -85,6 +85,18 @@ std::string formatItem(const PoolItem& item, bool showType) {
     return result;
 }
 
+void printQuickExpressionHelp() {
+    // Намеренно коротко: подробности живут в docs/gameplay.md, а не в
+    // стартовом экране уровня.
+    std::cout << "Цель: получить ответ из чисел набора." << std::endl;
+    std::cout << "Выражения: sum 1 3 (префикс) или 1 + 3 (инфикс)." << std::endl;
+    std::cout << "Вызов: sum(1, 3); типы: natural=2, integer=-3." << std::endl;
+    std::cout << "calc <выражение> — посчитать, не меняя набор." << std::endl;
+    std::cout << "help — команды; docs/gameplay.md — полное руководство."
+              << std::endl;
+    std::cout << std::endl;
+}
+
 bool parseNumberToken(const std::string& token, Num& value, bool& typed,
                       std::string& error) {
     // Форматы: "2" (integer), "natural=2", "integer=-3".
@@ -179,63 +191,14 @@ void Level::printHeader() const {
 }
 
 void Level::printTutorial() {
-    std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
-              << std::endl;
-    std::cout << "Префиксная запись: func a b, например sum 1 3." << std::endl;
-    std::cout << "Инфиксная запись: 1 + 3, (1 + 2) * 3, sum(1, 3) + 4." << std::endl;
-    std::cout << "Операторы + - * / % ** используют sum/sub/mul/div/mod/pow, если они есть в уровне."
-              << std::endl;
-    std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
-    std::cout << "В инфиксном выражении вызов функции пишется со скобками: f(1, 2)."
-              << std::endl;
-    std::cout << "Не смешивайте в одном выражении префиксный вызов и инфикс."
-              << std::endl;
-    std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
-              << std::endl;
-    std::cout << "Если тип числа неоднозначен, пишите natural=2 или integer=2."
-              << std::endl;
-    std::cout << "Имена чисел можно использовать вместо значений: n2."
-              << std::endl;
-    std::cout << std::endl;
-    std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
-    std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
-    std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
-    std::cout << "Введите history, чтобы увидеть историю ходов." << std::endl;
-    std::cout << "Введите reset, чтобы перезагрузить уровень." << std::endl;
-    std::cout << "Введите exit, чтобы выйти из уровня.\n" << std::endl;
+    printQuickExpressionHelp();
     tutorial_ = false;
 }
 
 void Level::printHelp() {
-    std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
+    printQuickExpressionHelp();
+    std::cout << "Команды: nums, history, hint, back, reset, clear, exit."
               << std::endl;
-    std::cout << "Префиксная запись: func a b, например sum 1 3." << std::endl;
-    std::cout << "Инфиксная запись: 1 + 3, (1 + 2) * 3, sum(1, 3) + 4." << std::endl;
-    std::cout << "Операторы + - * / % ** используют sum/sub/mul/div/mod/pow, если они есть в уровне."
-              << std::endl;
-    std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
-    std::cout << "В инфиксном выражении вызов функции пишется со скобками: f(1, 2)."
-              << std::endl;
-    std::cout << "Не смешивайте в одном выражении префиксный вызов и инфикс."
-              << std::endl;
-    std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
-              << std::endl;
-    std::cout << "Если тип числа неоднозначен, пишите natural=2 или integer=2."
-              << std::endl;
-    std::cout << "Имена чисел можно использовать вместо значений: n2."
-              << std::endl;
-    std::cout << std::endl;
-    std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
-    std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
-    std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
-    std::cout << "Введите history, чтобы увидеть историю ходов." << std::endl;
-    std::cout << "Введите hint, чтобы получить подсказку." << std::endl;
-    std::cout << "Введите calc {выражение}, чтобы посчитать выражение, не меняя набор."
-              << std::endl;
-    std::cout << "Введите back, чтобы откатить предыдущее выражение." << std::endl;
-    std::cout << "Введите reset, чтобы перезагрузить уровень." << std::endl;
-    std::cout << "Введите clear (или cls), чтобы очистить экран." << std::endl;
-    std::cout << "Введите exit, чтобы выйти из уровня.\n" << std::endl;
 }
 
 void Level::start() {

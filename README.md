@@ -1,6 +1,9 @@
 # func(math)
 
-Игра-головоломка про числа и функции.
+[![CI](https://github.com/Lexonixeo/funcmath-opencode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lexonixeo/funcmath-opencode/actions/workflows/ci.yml)
+
+Игра-головоломка про числа и функции. Полное руководство игрока — в
+[`docs/gameplay.md`](docs/gameplay.md).
 
 ## Смысл игры
 
@@ -54,9 +57,14 @@
 | `data/functions/` | пользовательские `.fn`-функции (создаются при сохранении) |
 | `data/players/`, `data/lvlrate.dat` | сохранения и оценки (создаются при игре) |
 | `CMakeLists.txt`, `build.bat` | сборка |
-| `docs/game.md` | подробная документация: команды, формат уровней, функции |
+| `tests/` | регрессионные тесты выражений и CTest-проверки уровней |
+| `.github/workflows/` | CI и сборка релизов на GitHub Actions |
+| `docs/gameplay.md` | полное руководство игрока: команды, типы, префикс и инфикс |
+| `docs/game.md` | техническое описание игры и формата уровней |
 | `docs/architecture.md` | архитектура и карта кода для разработчика |
 | `docs/level-authoring.md` | руководство: как писать уровни `.lvl` вручную |
+| `docs/level-design.md` | принципы и идеи создания уровней |
+| `AGENTS.md`, `docs/ai-context.md` | контекст и инструкции для ИИ-агентов |
 | `docs/changelog/` | история изменений по циклам |
 | `docs/ideas/` | идеи на будущее (часть уже реализована) |
 
@@ -78,12 +86,30 @@ g++ -std=c++17 -Wall -Wextra -O2 -o funcmath \
 Или CMake:
 
 ```sh
-cmake -S . -B build
-cmake --build build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 В Windows удобно `build.bat`. Запускать игру нужно из корня репозитория
 (рядом с `data/`) или из каталога сборки, куда CMake копирует `data/`.
+
+### Требования
+
+Для сборки:
+
+- компилятор C++17;
+- CMake 3.16+ (рекомендуется более новый);
+- терминал с поддержкой UTF-8.
+
+Для готовых релизов:
+
+- Windows 10/11 x64;
+- Linux x64 с glibc 2.35+ (например, Ubuntu 22.04+);
+- macOS 12+ arm64;
+- папка `data/` рядом с исполняемым файлом.
+
+Готовые сборки не требуют установленного компилятора или интернета.
 
 ## Режимы командной строки
 
@@ -95,6 +121,42 @@ funcmath --function # редактор пользовательской функ
 
 Подробности о командах, формате `.lvl` и функциях — в
 [`docs/game.md`](docs/game.md).
+
+## Тесты и CI
+
+На GitHub Actions при каждом push в `main` и каждом pull request собираются
+Windows/MSVC, Linux/GCC и macOS/AppleClang, затем запускается `ctest`.
+
+Локально:
+
+```sh
+ctest --test-dir build -C Release --output-on-failure
+```
+
+`ctest` проверяет парсер инфиксной записи и решаемость всех уровней, кроме
+известной проблемы уровня 18.
+
+## Релизы
+
+Релиз создаётся по тегу `v*`:
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Workflow соберёт архивы и прикрепит их к GitHub Release:
+
+```text
+funcmath-ds-v0.2.0-windows-x64.zip
+funcmath-ds-v0.2.0-linux-x64.tar.gz
+funcmath-ds-v0.2.0-macos-arm64.tar.gz
+SHA256SUMS.txt
+```
+
+Ручной запуск `Release` через `workflow_dispatch` собирает те же артефакты, но
+не публикует релиз. Внутри архива лежат исполняемый файл, `data/`, README и
+документация.
 
 ## История изменений
 
