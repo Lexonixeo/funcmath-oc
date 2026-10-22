@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Небольшие регрессионные тесты для инфиксного слоя.
 //
 // Проверяем именно нормализацию в префиксные слова: вычисление значений
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "Expression.h"
+#include "Functions.h"
 
 namespace {
 
@@ -68,6 +70,41 @@ void expectCall(const std::string& input, bool expected) {
     }
 }
 
+void expectArity(const std::string& name, int expected) {
+    const fmath::FunctionSpec* spec = fmath::findSpec(name);
+    if (!spec) {
+        fail(name, "функция не найдена в реестре");
+        return;
+    }
+    if (spec->arity() != expected) {
+        fail(name, "ожидалась арность " + std::to_string(expected) +
+                       ", получена " + std::to_string(spec->arity()));
+    }
+}
+
+void expectMissing(const std::string& name) {
+    if (fmath::findSpec(name)) {
+        fail(name, "функция не должна существовать после чистки");
+    }
+}
+
+void expectApply(const std::string& name, const std::vector<Num>& args,
+                 ValueType type, long long value) {
+    try {
+        const std::vector<Num> result = fmath::apply(name, args);
+        if (result.size() != 1) {
+            fail(name, "ожидался один результат");
+            return;
+        }
+        if (result[0].type() != type || result[0].asLongLong() != value) {
+            fail(name, "неверный результат: " + result[0].str() + " (" +
+                           result[0].typeName() + ")");
+        }
+    } catch (const std::exception& e) {
+        fail(name, std::string("исключение: ") + e.what());
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -119,6 +156,22 @@ int main() {
     expectNormalizeError("f(1,2");
     expectNormalizeError("1 +");
     expectNormalizeError("f()");
+
+    // Реестр после чистки: abs/not унарные, шумовые функции удалены.
+    expectArity("abs", 1);
+    expectArity("not", 1);
+    expectArity("rand", 2);
+    expectMissing("five");
+    expectMissing("neg2");
+    expectMissing("subr");
+    expectMissing("mulr");
+    expectMissing("divr");
+    // avg и sumr теперь задаются в уровнях как пользовательские функции.
+    expectMissing("avg");
+    expectMissing("sumr");
+    expectApply("abs", {Value::integer(-3)}, ValueType::Integer, 3);
+    expectApply("abs", {Value::natural(3)}, ValueType::Natural, 3);
+    expectApply("not", {Value::integer(4)}, ValueType::Integer, -5);
 
     if (failures != 0) {
         std::cerr << failures << " тест(ов) не прошли\n";

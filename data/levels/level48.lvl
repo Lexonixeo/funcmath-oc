@@ -1,6 +1,21 @@
 # func(math) level 48
-# Первая встреча с неизвестными функциями.
-numbers 3 4 5
-answer 12
-function A unknown mul
-function B unknown sum
+# ?? ??????? ?????????: ??? ??????? ??????? ? ???????????.
+numbers -5 25 -125 625
+answer 6
+function A
+  description A(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = integer=5
+end
+function B
+  description B(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = sub integer=2 a
+end
+function rand

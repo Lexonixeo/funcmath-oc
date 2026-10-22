@@ -1,7 +1,12 @@
 # func(math) level 24
-numbers 1 2 3 4
-answer 25
-function div
-function mul
-function sub
-function sum
+numbers 3 5 5 55
+answer 17
+function avg
+  description avg(a, b) = (a + b) / 2 - среднее арифметическое
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end

@@ -1,6 +1,13 @@
 # func(math) level 54
-# Конкатенация, затем деление.
-numbers 1 2 4
-answer 3
-function conc
-function div
+# ?? ??????? ?????????: ????? ? ??????? B.
+numbers 6 7 5 4
+answer -9
+function sum
+function B
+  description B(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = sub integer=2 a
+end

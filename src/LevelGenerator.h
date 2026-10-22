@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Генерация случайных уровней и интерактивное создание уровней.
 // Порт LevelGenerator (в Java генерация была заглушкой // to do...).

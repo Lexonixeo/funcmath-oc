@@ -1,6 +1,14 @@
 # func(math) level 49
-# Две неизвестные функции: умножение и деление.
-numbers 8 3 2
-answer 12
-function A unknown mul
-function B unknown div
+# ??????? ? ???????????.
+numbers 0 0 0 0 0 100 100 100 100 100
+answer 57
+function avg
+  description avg(a, b) = (a + b) / 2 - среднее арифметическое
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end
+function rand

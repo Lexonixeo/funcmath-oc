@@ -1,9 +1,10 @@
 # func(math) level 60
-# По мотивам старого прототипа: умножение и две скрытые функции.
-# В старом прототипе цель была 15, но с этим набором функций она недостижима,
-# поэтому цель заменена на достижимую.
-numbers 2 7 4 274
-answer -25
-function mul
-function A unknown five
-function B unknown neg2
+# Прототип: уровень 3 «Римляне»
+# Авторские подсказки: Одно из чисел здесь лишнее
+
+number natural 314
+number natural 81
+number natural 81
+number natural 81
+answer natural 476
+function sum

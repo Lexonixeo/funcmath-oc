@@ -1,7 +1,10 @@
 # func(math) level 61
-# Из старого прототипа: две скрытые функции и случайность.
-numbers -5 25 -125 625
-answer 6
-function A unknown five
-function B unknown neg2
-function rand
+# Прототип: уровень 4 «ЦИФРА НОЛЬ???»
+# Авторские подсказки: Одно число здесь лишнее. | Уберите число 23.
+
+number natural 23
+number natural 33
+number natural 39
+number natural 29
+answer natural 101
+function sum

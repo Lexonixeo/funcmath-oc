@@ -1,5 +1,6 @@
 # func(math) level 41
-# Знакомство с побитовым И.
-numbers 12 10
-answer 8
+# Побитовые операции в два шага.
+numbers 14 7 3
+answer 5
 function and
+function xor

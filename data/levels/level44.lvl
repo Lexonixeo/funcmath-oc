@@ -1,6 +1,6 @@
 # func(math) level 44
-# Побитовое И вместе с побитовым НЕ.
-numbers 12 10 5
-answer -5
-function and
-function not
+# Конкатенация, затем деление.
+numbers 1 2 4
+answer 3
+function conc
+function div

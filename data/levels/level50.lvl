@@ -1,6 +1,15 @@
 # func(math) level 50
-# Неизвестные сложение и умножение.
-numbers 5 7 2
-answer 24
-function A unknown sum
-function B unknown mul
+# ???????, ??????????? ? ?????.
+numbers 14 52 27
+answer 32
+function avg
+  description avg(a, b) = (a + b) / 2 - среднее арифметическое
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end
+function rand
+function sum

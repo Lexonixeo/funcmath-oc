@@ -228,7 +228,7 @@ integer × integer → integer
 смешанный вызов обслуживается integer-сигнатурой. `primes` — унарная функция с
 потоком: `natural → natural...` и `integer → integer...`.
 
-Случайные функции (`rand`, `sumr`, `subr`, `mulr`, `divr`) помечены
+Случайные функции (`rand`, `sumr`) помечены
 нестабильными. `binaryOutcomes` перечисляет все допустимые результаты; для
 очень широких диапазонов `rand` выбирает прореженную сетку (`kMaxOutcomes`),
 чтобы DFS не раздулся. Это точка, которую нужно менять при другой стратегии
@@ -318,7 +318,8 @@ DFS:
 - Пользовательские функции: `data/functions/<имя>.fn`.
 - Описания встроенных функций: `data/functions.txt` (`имя описание`).
 - Игроки: `data/players/players.txt` и `data/players/<hash>.sav`.
-- Оценки сложности: `data/lvlrate.dat`.
+- Старые оценки сложности (`data/lvlrate.dat`) больше не используются;
+  автоматический вопрос об оценке удалён.
 
 Пароли хранятся как FNV-1a-хеш; это учебный проект, не криптографическая
 защита. `promptLine` в `Player.cpp` обрабатывает EOF и CRLF.
@@ -377,10 +378,9 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-`ctest` запускает `tests/expression_tests.cpp` и по одному тесту на каждый
-уровень. Уровень 18 пока исключён: полный `--check` возвращает код `1` из-за
-известного ограничения DFS. Для одного уровня код `0` означает, что решение
-найдено.
+`ctest` запускает `tests/expression_tests.cpp` и по одному тесту на каждый из
+66 уровней. Уровень 18 запускается с увеличенным лимитом DFS: обычного лимита
+для него не хватает. Для одного уровня код `0` означает, что решение найдено.
 
 CI в `.github/workflows/ci.yml` повторяет эти шаги на Windows/MSVC,
 Linux/GCC и macOS/AppleClang. Релизный workflow
@@ -394,8 +394,8 @@ Linux/GCC и macOS/AppleClang. Релизный workflow
 printf 'name f\nin n: natural\nout r: natural\nbody r = mul n natural=2\ntest natural=6\nexit\n' \
   | ./funcmath --function
 
-# ручное прохождение уровня 79
-printf 'test\np\np\nlevel 79\nsplit n\nmul 3 7\ndouble 21\n0\nexit\n' \
+# ручное прохождение уровня 60 (бывший 79)
+printf 'test\np\np\nlevel 60\nsplit n\nmul 3 7\ndouble 21\n0\nexit\n' \
   | ./funcmath
 ```
 

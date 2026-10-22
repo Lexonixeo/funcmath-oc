@@ -2,6 +2,14 @@
 numbers 3 7 3 7 3 7
 answer 17
 function avg
+  description avg(a, b) = (a + b) / 2 - среднее арифметическое
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end
 function mod
 function mul
 function pow

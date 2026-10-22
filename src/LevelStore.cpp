@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // LevelStore.cpp
 // --------------
 // Парсер и сериализация уровней.

@@ -1,5 +1,5 @@
 # func(math) level 27
-numbers 93 24 3
-answer 7
-function div
-function mod
+numbers 1 1 1 1 2 2 2 7 7 7 7 9 9
+answer 346
+function mul
+function sum

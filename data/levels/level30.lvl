@@ -1,4 +1,7 @@
 # func(math) level 30
-numbers 3 3
-answer 27
-function pow
+numbers 19 19 20 20 2 2
+answer 179
+function div
+function mul
+function sub
+function sum

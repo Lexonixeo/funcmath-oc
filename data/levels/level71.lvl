@@ -1,9 +1,20 @@
 # func(math) level 71
-# Прототип: уровень 9 «ОТА»
-# Авторские подсказки: Воспользуйтесь основной теоремой арифметики. | Разложите 231 на простые множители.
+# Тема: чёрный ящик и обратная задача.
+# glue(a, b) — секретная операция; её тело игроку не показывается.
+# На самом деле glue(3, 4) = 19, а glue(19, 2) = 59.
+# Решение: glue 3 4 -> 19; glue 19 2 -> 59.
 
-number natural 30
-number natural 77
-answer natural 231
-function primes
-function mul
+number natural 2
+number natural 3
+number natural 4
+answer natural 59
+function glue
+  description glue(a, b) — секретная операция над двумя числами
+  in a: natural
+  in b: natural
+  out r: natural
+  body
+    p = mul a b
+    s = sum a b
+    r = sum p s
+end

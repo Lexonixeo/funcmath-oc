@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Игровой цикл и главное меню — порт класса Game.
 // Game не знает, как устроен уровень: он загружает LevelData, создаёт Level
@@ -29,7 +30,6 @@ private:
     void next();
     void randomLevel(int difficulty);
     void stats() const;
-    void rate(int level);
 
     void help() const;
     void menu() const;

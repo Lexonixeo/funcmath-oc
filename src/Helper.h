@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Вспомогательные утилиты: работа со строками, файлами и консолью.
 // Порт класса Helper из Java-версии (funcmathjava1).

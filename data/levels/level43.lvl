@@ -1,5 +1,5 @@
 # func(math) level 43
-# Исключающее ИЛИ.
-numbers 12 10 5
-answer 3
-function xor
+# Конкатенация чисел.
+numbers 1 2 34
+answer 1234
+function conc

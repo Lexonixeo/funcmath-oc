@@ -1,6 +1,5 @@
 # func(math) level 37
-numbers 14 52 27
-answer 32
-function avg
-function rand
-function sum
+# Знакомство с побитовым И.
+numbers 12 10
+answer 8
+function and

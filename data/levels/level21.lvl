@@ -1,5 +1,13 @@
 # func(math) level 21
-numbers 1 1 1 1 2 2 2 7 7 7 7 9 9
-answer 346
+# Модуль: abs2 забирает одно число и убирает знак.
+numbers -2 8 9
+answer 16
+function abs2
+  description abs2(a, b) = |a|
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = abs a
+end
 function mul
-function sum

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // LevelGenerator.cpp
 // ------------------
 // Две независимые вещи:
@@ -133,29 +134,46 @@ LevelData generateRandom(int difficulty) {
     for (int attempt = 0; attempt < 200 && !ok; ++attempt) {
         std::vector<Num> work = numbers;
         int steps = randInt(1, std::max(1, count - 1));
-        for (int s = 0; s < steps && work.size() >= 2; ++s) {
+        for (int s = 0; s < steps && !work.empty(); ++s) {
             int n = static_cast<int>(work.size());
-            int i = randInt(0, n - 2);
-            int j = randInt(i + 1, n - 1);
-            Num a = work[i], b = work[j];
-            if (randInt(0, 1) == 1) std::swap(a, b);
             const Fn& f = functions[randInt(0, static_cast<int>(functions.size()) - 1)];
             if (!f.isStable()) continue;
+            const int arity = std::max(1, f.numberOfArgs);
+            if (n < arity) continue;
+
+            // Выбираем arity различных чисел и передаём их функции. Так
+            // генератор работает и с унарными abs/not, и с обычными
+            // бинарными операциями.
+            std::vector<int> order(n);
+            for (int k = 0; k < n; ++k) order[k] = k;
+            std::vector<int> indices;
+            std::vector<Num> args;
+            indices.reserve(arity);
+            args.reserve(arity);
+            for (int k = 0; k < arity; ++k) {
+                int pick = randInt(k, n - 1);
+                std::swap(order[k], order[pick]);
+                indices.push_back(order[k]);
+                args.push_back(work[order[k]]);
+            }
+
             std::vector<Num> results;
             try {
                 // Генератор использует обычный (не allOutcomes) вызов:
                 // фиксируем один случайный исход и делаем его целью.
-                results = f.use({a, b});
+                results = f.use(args);
             } catch (...) {
                 continue;
             }
             if (results.empty()) continue;
             Num c = results.front();
-            // удаляем i и j
+
+            std::vector<bool> removed(n, false);
+            for (int index : indices) removed[index] = true;
             std::vector<Num> next;
-            next.reserve(work.size() - 1);
+            next.reserve(n - arity + 1);
             for (int k = 0; k < n; ++k)
-                if (k != i && k != j) next.push_back(work[k]);
+                if (!removed[k]) next.push_back(work[k]);
             next.push_back(c);
             work = next;
         }

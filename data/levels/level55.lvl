@@ -1,6 +1,14 @@
 # func(math) level 55
-# Неизвестные среднее арифметическое и умножение.
-numbers 4 8 2
-answer 6
-function A unknown avg
-function B unknown mul
+# ?? ??????? ?????????: ?????, ??????? ? ??????? B.
+numbers -4 3 5 100 -101
+answer 0
+function sum
+function mod
+function B
+  description B(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = sub integer=2 a
+end

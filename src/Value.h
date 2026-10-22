@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Значение в наборе уровня — аналог MathObject из Java-прототипа.
 //

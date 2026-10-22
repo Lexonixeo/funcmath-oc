@@ -1,5 +1,6 @@
 # func(math) level 42
-# Побитовое ИЛИ.
-numbers 12 10 5
-answer 15
+# ИЛИ и исключающее ИЛИ.
+numbers 9 6 3
+answer 12
 function or
+function xor

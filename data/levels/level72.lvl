@@ -1,8 +1,6 @@
 # func(math) level 72
-# Прототип: уровень 10 «Разделение»
-# Авторские подсказки: Введите div 6 3
-
-number natural 6
-number natural 3
-answer natural 2
-function div
+# Финальный уровень: три хода.
+numbers 2 3 5 7
+answer 57
+function mul
+function sum

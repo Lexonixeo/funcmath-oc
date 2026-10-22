@@ -1,8 +1,11 @@
 # func(math) level 63
-# Прототип: уровень 1 «1+1=2»
-# Авторские подсказки: Введите sum 1 1
+# Тема: разложение на простые множители с выбором нужных.
+# 10800 = 2^4 * 3^3 * 5^2. Цель 360 = 2^3 * 3^2 * 5.
+# primes 10800 даст все множители, но лишние 2, 3 и 5 нужно оставить.
+# Решение: mul 2 2 -> 4; mul 4 2 -> 8; mul 8 3 -> 24;
+# mul 24 3 -> 72; mul 72 5 -> 360.
 
-number natural 1
-number natural 1
-answer natural 2
-function sum
+number natural 10800
+answer natural 360
+function primes
+function mul

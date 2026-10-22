@@ -1,7 +1,21 @@
 # func(math) level 58
-# Из старого прототипа: сумма, остаток и скрытая B.
-numbers -4 3 5 100 -101
-answer 0
-function sum
-function mod
-function B unknown neg2
+# ?? ??????? ?????????: ????????? ? ??? ??????? ???????.
+numbers 2 7 4 274
+answer -25
+function mul
+function A
+  description A(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = integer=5
+end
+function B
+  description B(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = sub integer=2 a
+end

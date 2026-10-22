@@ -1,4 +1,5 @@
 # func(math) level 38
-numbers 496 503
-answer 1000
-function sumr
+# Побитовое ИЛИ.
+numbers 12 10 5
+answer 15
+function or

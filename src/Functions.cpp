@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Functions.cpp
 // -------------
 // Реестр простейших (встроенных) функций и их реализаций.
@@ -73,12 +74,6 @@ Value make(ValueType type, long double value) {
     return make(type, clampLL(value));
 }
 
-Value addDelta(const Value& base, long long delta) {
-    // Для natural отрицательный результат после прибавления delta — ошибка
-    // домена, а не тихое обрезание.
-    return make(base.type(), static_cast<long double>(base.asLongLong()) + delta);
-}
-
 // Остаток как в Java: всегда неотрицательный при b != 0. Для b == -1
 // возвращаем 0, чтобы избежать переполнения на LLONG_MIN / -1.
 long long modLL(long long a, long long b) {
@@ -110,19 +105,10 @@ Value opMul(Value a, Value b) {
                                       static_cast<long double>(b.asLongLong()));
 }
 
-Value opAbs(Value a, Value) {
+Value opAbs(Value a) {
     if (a.isNatural()) return a;
     return make(ValueType::Integer,
                 static_cast<long double>(std::llabs(a.asLongLong())));
-}
-
-// Специальные функции из раннего однофайлового прототипа. Там они были
-// «неизвестными» A и B; теперь доступны как обычные поведения, чтобы
-// сохранить старые уровни.
-Value opFive(Value a, Value b) { return make(commonType(a, b), 5LL); }
-Value opNeg2(Value a, Value b) {
-    return make(commonType(a, b),
-                2.0L - static_cast<long double>(a.asLongLong()));
 }
 
 Value opMod(Value a, Value b) {
@@ -139,13 +125,6 @@ Value opDiv(Value a, Value b) {
     long long y = b.asLongLong();
     long long mod = modLL(x, y);
     return make(type, static_cast<long double>((x - mod) / y));
-}
-
-Value opAvg(Value a, Value b) {
-    return make(commonType(a, b),
-                (static_cast<long double>(a.asLongLong()) +
-                 static_cast<long double>(b.asLongLong())) /
-                    2.0L);
 }
 
 Value opPow(Value a, Value b) {
@@ -190,17 +169,13 @@ Value opAnd(Value a, Value b) {
 Value opOr(Value a, Value b) {
     return make(commonType(a, b), static_cast<long long>(to32(a) | to32(b)));
 }
-Value opNot(Value a, Value b) {
-    return make(commonType(a, b), static_cast<long long>(~to32(a)));
+Value opNot(Value a) {
+    // Побитовое НЕ всегда возвращает integer: ~0 = -1.
+    return make(ValueType::Integer, static_cast<long long>(~to32(a)));
 }
 Value opXor(Value a, Value b) {
     return make(commonType(a, b), static_cast<long long>(to32(a) ^ to32(b)));
 }
-
-Value opSumr(Value a, Value b) { return addDelta(opSum(a, b), randBetween(-10, 10)); }
-Value opSubr(Value a, Value b) { return addDelta(opSub(a, b), randBetween(-10, 10)); }
-Value opMulr(Value a, Value b) { return addDelta(opMul(a, b), randBetween(-25, 25)); }
-Value opDivr(Value a, Value b) { return addDelta(opDiv(a, b), randBetween(-25, 25)); }
 
 Value opConc(Value a, Value b) {
     // Конкатенация десятичных записей: 12 и 3 -> 123. Если результат не
@@ -269,20 +244,17 @@ std::map<std::string, Op> buildOps() {
     // добавляются сразу в registry().
     return {
         {"sum", opSum},   {"sub", opSub},   {"mul", opMul},   {"div", opDiv},
-        {"mod", opMod},   {"abs", opAbs},   {"pow", opPow},   {"rand", opRand},
-        {"and", opAnd},   {"or", opOr},     {"not", opNot},   {"xor", opXor},
-        {"avg", opAvg},   {"sumr", opSumr}, {"subr", opSubr}, {"mulr", opMulr},
-        {"divr", opDivr}, {"conc", opConc}, {"base", opBase}, {"round", opRound},
-        {"five", opFive}, {"neg2", opNeg2},
+        {"mod", opMod},   {"pow", opPow},   {"rand", opRand}, {"and", opAnd},
+        {"or", opOr},     {"xor", opXor},   {"conc", opConc},
+        {"base", opBase}, {"round", opRound},
     };
 }
 
 const std::vector<std::string> kGenerationPool = {
-    "sum", "sub", "mul", "div", "mod", "abs", "pow", "avg", "and", "or", "xor", "conc"};
+    "sum", "sub", "mul", "div", "mod", "abs", "pow", "and", "or", "xor", "conc"};
 
 bool isUnstableName(const std::string& name) {
-    return name == "rand" || name == "sumr" || name == "subr" || name == "mulr" ||
-           name == "divr";
+    return name == "rand";
 }
 
 }  // namespace
@@ -350,40 +322,13 @@ std::vector<Num> binaryOutcomes(const std::string& name, Num a, Num b) {
         return result;
     }
 
-    // Функции «с погрешностью»: базовое значение ± delta.
-    Value base;
-    long long delta = 0;
+    // Стабильная функция (или неизвестная): единственный результат.
     try {
-        if (name == "sumr") {
-            base = opSum(a, b);
-            delta = 10;
-        } else if (name == "subr") {
-            base = opSub(a, b);
-            delta = 10;
-        } else if (name == "mulr") {
-            base = opMul(a, b);
-            delta = 25;
-        } else if (name == "divr") {
-            base = opDiv(a, b);
-            delta = 25;
-        } else {
-            // Стабильная функция (или неизвестная): единственный результат.
-            auto it = ops().find(name);
-            if (it == ops().end()) return result;
-            result.push_back(it->second(a, b));
-            return result;
-        }
+        auto it = ops().find(name);
+        if (it == ops().end()) return result;
+        result.push_back(it->second(a, b));
     } catch (const std::exception&) {
         // Для strict natural неудачная операция не даёт допустимых исходов.
-        return result;
-    }
-
-    result.reserve(static_cast<std::size_t>(2 * delta + 1));
-    for (long long k = -delta; k <= delta; ++k) {
-        long double value = static_cast<long double>(base.asLongLong()) + k;
-        long long candidate = clampLL(value);
-        if (type == ValueType::Natural && candidate < 0) continue;
-        result.push_back(Value::of(type, candidate));
     }
     return result;
 }
@@ -469,6 +414,32 @@ std::map<std::string, FunctionSpec> buildRegistry() {
         }
         result.emplace(entry.first, std::move(spec));
     }
+
+    // abs и not — унарные. Раньше они были записаны как бинарные и молча
+    // игнорировали второй аргумент; это сбивало игрока и документацию.
+    FunctionSpec absFn;
+    absFn.signatures = {
+        Signature{{ValueType::Natural}, one(ValueType::Natural)},
+        Signature{{ValueType::Integer}, one(ValueType::Integer)},
+    };
+    absFn.apply = [](const std::vector<Num>& args) {
+        if (args.size() != 1)
+            throw std::domain_error("abs ожидает 1 аргумент");
+        return std::vector<Num>{opAbs(args[0])};
+    };
+    result.emplace("abs", std::move(absFn));
+
+    FunctionSpec notFn;
+    // natural можно передать в integer-параметр; результат always integer.
+    notFn.signatures = {
+        Signature{{ValueType::Integer}, one(ValueType::Integer)},
+    };
+    notFn.apply = [](const std::vector<Num>& args) {
+        if (args.size() != 1)
+            throw std::domain_error("not ожидает 1 аргумент");
+        return std::vector<Num>{opNot(args[0])};
+    };
+    result.emplace("not", std::move(notFn));
 
     FunctionSpec primes;
     primes.signatures = {

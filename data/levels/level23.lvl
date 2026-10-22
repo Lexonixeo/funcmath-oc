@@ -1,6 +1,6 @@
 # func(math) level 23
-numbers -2 145 18 987653
-answer 16
-function abs
-function div
-function mul
+# Степень и вычитание.
+numbers 2 10 3
+answer 1021
+function pow
+function sub

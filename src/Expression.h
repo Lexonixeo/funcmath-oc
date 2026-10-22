@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Инфиксная запись как синтаксический сахар над префиксной.
 //

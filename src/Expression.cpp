@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Expression.cpp
 // --------------
 // Лексер и рекурсивный разбор инфиксных выражений.

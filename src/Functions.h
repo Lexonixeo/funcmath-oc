@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Библиотека простейших функций — порт класса SimplestFunctions.
 //
@@ -79,7 +80,7 @@ void loadDescriptions(const std::string& path);
 // Описание функции (или само имя, если описания нет).
 std::string describe(const std::string& name);
 
-// Стабильна ли функция (детерминирована). rand/sumr/subr/mulr/divr — нет.
+// Стабильна ли функция (детерминирована). rand — нет.
 bool isStable(const std::string& name);
 
 // Применяет функцию, проверяя число и типы аргументов. Бросает

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Level.cpp
 // ---------
 // Прохождение одного уровня: набор чисел, команды, разбор префиксных
@@ -85,16 +86,29 @@ std::string formatItem(const PoolItem& item, bool showType) {
     return result;
 }
 
-void printQuickExpressionHelp() {
-    // Намеренно коротко: подробности живут в docs/gameplay.md, а не в
-    // стартовом экране уровня.
-    std::cout << "Цель: получить ответ из чисел набора." << std::endl;
-    std::cout << "Выражения: sum 1 3 (префикс) или 1 + 3 (инфикс)." << std::endl;
-    std::cout << "Вызов: sum(1, 3); типы: natural=2, integer=-3." << std::endl;
-    std::cout << "calc <выражение> — посчитать, не меняя набор." << std::endl;
-    std::cout << "help — команды; docs/gameplay.md — полное руководство."
-              << std::endl;
-    std::cout << std::endl;
+void printExpressionHelp() {
+    // Коротко, но достаточно, чтобы играть без внешней документации.
+    std::cout << "Как получить ответ" << std::endl;
+    std::cout << "Функция забирает числа из набора и кладёт на их место результат." << std::endl;
+    std::cout << "Пример: sum 1 3   ->   в наборе появится 4, а числа 1 и 3 исчезнут." << std::endl;
+    std::cout << "Аргументы пишутся после имени функции через пробел:" << std::endl;
+    std::cout << "  sub 10 3, mul 4 5, div 9 3, sum 1 mul 2 3" << std::endl;
+    std::cout << "Привычная запись тоже работает: 1 + 3, (1 + 2) * 3, sum(1, 3)." << std::endl;
+    std::cout << "Операторы: + - * / % **. Не смешивайте sum 1 2 + 3; пишите sum(1, 2) + 3." << std::endl;
+    std::cout << "calc <выражение> — посчитать, не меняя набор (безопасная проверка)." << std::endl;
+}
+
+void printCommandsHelp() {
+    std::cout << "Команды уровня:" << std::endl;
+    std::cout << "  nums           — показать текущий набор" << std::endl;
+    std::cout << "  history        — показать сделанные ходы" << std::endl;
+    std::cout << "  hint           — подсказать возможный ход" << std::endl;
+    std::cout << "  back           — отменить последний ход" << std::endl;
+    std::cout << "  reset          — вернуть набор к началу уровня" << std::endl;
+    std::cout << "  clear / cls    — очистить экран" << std::endl;
+    std::cout << "  help           — показать эту справку" << std::endl;
+    std::cout << "  exit           — выйти из уровня в главное меню" << std::endl;
+    std::cout << "  <выражение>    — сделать ход" << std::endl;
 }
 
 bool parseNumberToken(const std::string& token, Num& value, bool& typed,
@@ -191,13 +205,25 @@ void Level::printHeader() const {
 }
 
 void Level::printTutorial() {
-    printQuickExpressionHelp();
+    std::cout << "--- Короткое обучение ---" << std::endl;
+    printExpressionHelp();
+    std::cout << "Ошиблись? back отменяет последний ход, reset начинает уровень заново." << std::endl;
+    std::cout << "nums покажет набор, help — все команды, exit — выход в главное меню."
+              << std::endl;
+    std::cout << "Подробное руководство: docs/gameplay.md (в релизе — docs/gameplay.txt)."
+              << std::endl;
+    std::cout << std::endl;
     tutorial_ = false;
 }
 
 void Level::printHelp() {
-    printQuickExpressionHelp();
-    std::cout << "Команды: nums, history, hint, back, reset, clear, exit."
+    printExpressionHelp();
+    std::cout << std::endl;
+    printCommandsHelp();
+    std::cout << std::endl;
+    std::cout << "Типы: natural — неотрицательное, integer — целое. Если одинаковые"
+              << std::endl;
+    std::cout << "числа разных типов неоднозначны, пишите natural=2 или integer=2."
               << std::endl;
 }
 

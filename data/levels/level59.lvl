@@ -1,6 +1,14 @@
 # func(math) level 59
-# Из старого прототипа: сумма и скрытая B.
-numbers 6 7 5 4
-answer -9
-function sum
-function B unknown neg2
+# Пользовательская функция под видом неизвестной.
+numbers 4 8 2
+answer 6
+function A
+  description A(a, b) — неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end
+function B unknown mul

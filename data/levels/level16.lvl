@@ -1,5 +1,5 @@
 # func(math) level 16
-numbers 6 4 7 100
-answer 8
+numbers 2 3 5
+answer 1
 function div
-function sum
+function mul

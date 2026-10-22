@@ -1,5 +1,4 @@
 # func(math) level 46
-# Перевод из системы счисления: результат первого шага становится основанием.
-numbers 101 11 2
-answer 6
-function base
+numbers 1 5
+answer 4
+function rand

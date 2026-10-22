@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Game.cpp
 // ---------
 // Верхнеуровневый цикл: главное меню, выбор уровня, сохранение прогресса.
@@ -36,20 +37,6 @@ bool Game::loadLevel(int number, LevelData& out) const {
     return true;
 }
 
-void Game::rate(int level) {
-    std::cout << "Оцените сложность данного уровня от 1 до 10 (введите 0 если не хотите отвечать): ";
-    std::string line;
-    if (!std::getline(std::cin, line)) return;
-    long long rate;
-    if (!helper::parseInt(helper::trim(line), rate)) {
-        std::cout << "Спасибо!" << std::endl;
-        return;
-    }
-    if (1 <= rate && rate <= 10)
-        helper::appendLine(dataDir_ + "/lvlrate.dat", std::to_string(level) + " " + std::to_string(rate));
-    std::cout << "Спасибо!" << std::endl;
-}
-
 void Game::level(int n) {
     // Сначала фиксируем lastLevel: если игрок выйдет из уровня через exit,
     // команда next/last всё равно будет знать, где он был.
@@ -68,8 +55,6 @@ void Game::level(int n) {
     player_.tutorial = result.tutorial;
     if (result.completed) player_.completed.insert(n);
     playerstore::save(dataDir_, player_);
-
-    rate(n);
 }
 
 void Game::play() {
@@ -114,8 +99,6 @@ void Game::randomLevel(int difficulty) {
 }
 
 void Game::stats() const {
-    // Оценки читаются из общего lvlrate.dat, поэтому средняя оценка —
-    // по всем игрокам, а не только по текущему.
     int total = static_cast<int>(levels_.size());
     int done = static_cast<int>(player_.completed.size());
     std::cout << "=== Статистика игрока " << player_.name << " ===" << std::endl;
@@ -123,23 +106,6 @@ void Game::stats() const {
     if (total > 0) std::cout << " (" << (done * 100 / total) << "%)";
     std::cout << std::endl;
     std::cout << "Последний уровень: " << (player_.lastLevel == -1 ? "нет" : std::to_string(player_.lastLevel)) << std::endl;
-
-    std::string ratings = helper::readFile(dataDir_ + "/lvlrate.dat");
-    int ratingCount = 0;
-    long long ratingSum = 0;
-    for (const std::string& raw : helper::splitLines(ratings)) {
-        std::vector<std::string> w = helper::wordsFromString(helper::trim(raw));
-        if (w.size() < 2) continue;
-        long long r;
-        if (helper::parseInt(w[1], r)) {
-            ratingCount++;
-            ratingSum += r;
-        }
-    }
-    if (ratingCount > 0)
-        std::cout << "Средняя оценка сложности: " << (static_cast<double>(ratingSum) / ratingCount)
-                  << " (оценок: " << ratingCount << ")" << std::endl;
-
     std::cout << "Пройденные уровни:";
     if (player_.completed.empty()) std::cout << " (нет)";
     for (int lvl : player_.completed) std::cout << " " << lvl;

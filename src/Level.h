@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Прохождение одного уровня — порт класса Level.
 

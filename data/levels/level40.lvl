@@ -1,4 +1,5 @@
 # func(math) level 40
-numbers 10 8
-answer 100
-function mulr
+# Побитовое НЕ: not забирает одно число.
+numbers 4 5
+answer -5
+function not

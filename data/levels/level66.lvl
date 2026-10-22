@@ -1,10 +1,15 @@
 # func(math) level 66
-# Прототип: уровень 4 «ЦИФРА НОЛЬ???»
-# Авторские подсказки: Одно число здесь лишнее. | Уберите число 23.
+# Тема: повторное возведение в квадрат.
+# Даны шесть двоек (и одна тройка-обманка). Цель — 2^16 = 65536.
+# Решение: последовательно возводить результат в квадрат:
+# pow 2 2 -> 4; pow 4 2 -> 16; pow 16 2 -> 256; pow 256 2 -> 65536.
 
-number natural 23
-number natural 33
-number natural 39
-number natural 29
-answer natural 101
-function sum
+number natural 2
+number natural 2
+number natural 2
+number natural 2
+number natural 2
+number natural 2
+number natural 3
+answer natural 65536
+function pow

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Player.cpp
 // ----------
 // Логин, регистрация и сохранение прогресса.

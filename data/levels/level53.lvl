@@ -1,6 +1,6 @@
 # func(math) level 53
-# ИЛИ и исключающее ИЛИ.
-numbers 9 6 3
-answer 12
-function or
-function xor
+# Неизвестные сложение и умножение.
+numbers 5 7 2
+answer 24
+function A unknown sum
+function B unknown mul

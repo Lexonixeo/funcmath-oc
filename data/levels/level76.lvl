@@ -1,9 +1,0 @@
-# func(math) level 76
-# Прототип: уровень 14 «Начались долги...»
-
-number integer 100
-number integer 200
-number integer 500
-answer integer -300
-function sub
-function sum

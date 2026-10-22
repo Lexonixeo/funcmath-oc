@@ -1,5 +1,15 @@
 # func(math) level 34
-numbers 0 0 0 0 0 100 100 100 100 100
-answer 57
+numbers 2 2 2 3 10 10 10
+answer 2024
 function avg
-function rand
+  description avg(a, b) = (a + b) / 2 - среднее арифметическое
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    r = div s integer=2
+end
+function mul
+function pow
+function sum

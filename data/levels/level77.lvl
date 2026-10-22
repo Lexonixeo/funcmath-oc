@@ -1,9 +1,0 @@
-# func(math) level 77
-# Прототип: уровень 15 «239-1»
-
-number integer 2
-number integer 3
-number integer 9
-answer integer -10
-function sub
-function sum

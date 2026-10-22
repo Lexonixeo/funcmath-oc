@@ -1,7 +1,13 @@
 # func(math) level 57
-# Из старого прототипа: скрытая функция B(a, b) = -a + 2.
-numbers 5 5 5 5 5 5 5
-answer 4
-function sub
-function B unknown neg2
-function abs
+# ?? ??????? ?????????: ????????? ? ??????? A.
+numbers 426 312 462 984
+answer 25
+function mul
+function A
+  description A(a, b) - неизвестная функция
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    r = integer=5
+end

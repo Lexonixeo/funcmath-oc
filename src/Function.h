@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #pragma once
 // Именованная функция уровня — порт класса Function.
 //

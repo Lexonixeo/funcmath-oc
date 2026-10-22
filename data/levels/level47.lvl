@@ -1,6 +1,14 @@
 # func(math) level 47
-# Степень и вычитание.
-numbers 2 10 3
-answer 1021
-function pow
-function sub
+# sumr — пользовательская сумма с небольшим случайным разбросом.
+numbers 496 503
+answer 1000
+function sumr
+  description sumr(a, b) = (a + b) +- 10
+  in a: integer
+  in b: integer
+  out r: integer
+  body
+    s = sum a b
+    d = rand -10 10
+    r = sum s d
+end

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // func(math) — консольная игра.
 // Порт Java-версии (github.com/Lexonixeo/funcmathjava1) на C++17.
 //

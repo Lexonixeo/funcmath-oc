@@ -48,6 +48,8 @@ if(BUILD_TESTING)
   add_executable(expression_tests
     tests/expression_tests.cpp
     src/Expression.cpp
+    src/Functions.cpp
+    src/Helper.cpp
   )
   target_include_directories(expression_tests PRIVATE src)
   if(MSVC)
@@ -58,10 +60,9 @@ if(BUILD_TESTING)
   add_test(NAME expression_tests COMMAND expression_tests)
   set_tests_properties(expression_tests PROPERTIES TIMEOUT 30)
 
-  # Уровень 18 пока не находится решателем; после аудита его нужно убрать
-  # из этого списка. Список вынесен в кэш, чтобы перенумерация уровней была
-  # явной, а не пряталась в коде CMake.
-  set(FM_KNOWN_UNSOLVABLE_LEVELS "18" CACHE STRING
+  # Список вынесен в кэш, чтобы временно исключать проблемные уровни при
+  # перенумерации, не пряча это в коде CMake. Сейчас он пуст.
+  set(FM_KNOWN_UNSOLVABLE_LEVELS "" CACHE STRING
       "уровни, временно пропускаемые в CTest")
   file(GLOB FM_LEVEL_FILES CONFIGURE_DEPENDS
        "${CMAKE_CURRENT_SOURCE_DIR}/data/levels/level*.lvl")
@@ -72,11 +73,20 @@ if(BUILD_TESTING)
       if(FM_LEVEL IN_LIST FM_KNOWN_UNSOLVABLE_LEVELS)
         continue()
       endif()
+      set(FM_LEVEL_ARGS --check ${FM_LEVEL})
+      set(FM_LEVEL_TIMEOUT 60)
+      # Уровень 18 требует более глубокого поиска: стандартного лимита
+      # решателя не хватает, хотя решение существует. Это кандидат на
+      # упрощение при аудите, но тест не должен его скрывать.
+      if(FM_LEVEL STREQUAL "18")
+        set(FM_LEVEL_ARGS --check 18 --nodes 50000000 --time 60000)
+        set(FM_LEVEL_TIMEOUT 120)
+      endif()
       add_test(NAME "level_${FM_LEVEL}_solvable"
-               COMMAND funcmath --check ${FM_LEVEL})
+               COMMAND funcmath ${FM_LEVEL_ARGS})
       set_tests_properties("level_${FM_LEVEL}_solvable" PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:funcmath>"
-        TIMEOUT 60)
+        TIMEOUT ${FM_LEVEL_TIMEOUT})
     endif()
   endforeach()
 endif()
@@ -102,7 +112,38 @@ install(DIRECTORY data DESTINATION .
         PATTERN "cache" EXCLUDE
         PATTERN "logs" EXCLUDE)
 install(DIRECTORY docs DESTINATION .)
-install(FILES README.md DESTINATION .)
+install(FILES README.md LICENSE DESTINATION .)
+
+# Для релиза дополнительно кладём простые .txt-версии документации: их можно
+# открыть в Блокноте без просмотрщика Markdown. В репозитории основным
+# форматом остаётся .md.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/gameplay.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/level-authoring.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/level-design.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/game.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/architecture.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/level-audit.md"
+  "${CMAKE_CURRENT_SOURCE_DIR}/docs/level-renumbering.md")
+
+find_program(FM_PYTHON NAMES python3 python)
+if(FM_PYTHON)
+  set(FM_TXT_DOCS_DIR "${CMAKE_BINARY_DIR}/txt-docs")
+  execute_process(
+    COMMAND "${FM_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/md_to_txt.py"
+            --source "${CMAKE_CURRENT_SOURCE_DIR}"
+            --output "${FM_TXT_DOCS_DIR}"
+    RESULT_VARIABLE FM_TXT_DOCS_RESULT
+    OUTPUT_QUIET)
+  if(FM_TXT_DOCS_RESULT EQUAL 0)
+    install(DIRECTORY "${FM_TXT_DOCS_DIR}/" DESTINATION .)
+  else()
+    message(WARNING "Не удалось создать .txt-версии документации")
+  endif()
+else()
+  message(WARNING "Python не найден: .txt-версии документации не будут упакованы")
+endif()
 
 set(CPACK_PACKAGE_NAME "funcmath-ds")
 set(CPACK_PACKAGE_VENDOR "funcmath")
