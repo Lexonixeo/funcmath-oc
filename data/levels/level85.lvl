@@ -1,0 +1,20 @@
+# func(math) level 85
+# Тема: чёрный ящик и обратная задача.
+# glue(a, b) — секретная операция; её тело игроку не показывается.
+# На самом деле glue(3, 4) = 19, а glue(19, 2) = 59.
+# Решение: glue 3 4 -> 19; glue 19 2 -> 59.
+
+number natural 2
+number natural 3
+number natural 4
+answer natural 59
+function glue
+  description glue(a, b) — секретная операция над двумя числами
+  in a: natural
+  in b: natural
+  out r: natural
+  body
+    p = mul a b
+    s = sum a b
+    r = sum p s
+end

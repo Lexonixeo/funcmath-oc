@@ -1,0 +1,18 @@
+# func(math) level 83
+# Тема: двоичное представление и исключающее ИЛИ.
+# Цель 173 = 128 + 32 + 8 + 4 + 1.
+# Все числа — степени двойки; 256 — лишняя.
+# Решение: xor 128 32 -> 160; xor 160 8 -> 168;
+# xor 168 4 -> 172; xor 172 1 -> 173.
+
+number natural 1
+number natural 2
+number natural 4
+number natural 8
+number natural 16
+number natural 32
+number natural 64
+number natural 128
+number natural 256
+answer natural 173
+function xor

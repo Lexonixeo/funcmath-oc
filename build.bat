@@ -3,7 +3,7 @@ chcp 65001 >nul
 rem Сборка func(math) через g++ (MinGW).
 setlocal
 
-set SRC=src\main.cpp src\Helper.cpp src\Functions.cpp src\Function.cpp ^
+set SRC=src\main.cpp src\Helper.cpp src\Functions.cpp src\Expression.cpp src\Function.cpp ^
         src\LevelStore.cpp src\Level.cpp src\Solver.cpp ^
         src\LevelGenerator.cpp src\Player.cpp src\Game.cpp
 

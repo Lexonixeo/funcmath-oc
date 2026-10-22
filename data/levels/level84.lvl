@@ -1,0 +1,18 @@
+# func(math) level 84
+# Тема: частное и остаток от одного деления.
+# 100 = 7 * 14 + 2, а цель 44 = 3 * 14 + 2.
+# Нужны две копии 100 и две копии 7: одну пару тратим на частное,
+# другую — на остаток.
+# Решение: div 100 7 -> 14; mul 14 3 -> 42; mod 100 7 -> 2;
+# sum 42 2 -> 44.
+
+number natural 100
+number natural 100
+number natural 7
+number natural 7
+number natural 3
+answer natural 44
+function div
+function mod
+function mul
+function sum

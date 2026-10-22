@@ -58,10 +58,16 @@ private:
                         bool consumeFromSet, std::vector<PoolItem>& pool,
                         ValueType literalType, std::vector<Num>& result,
                         std::string& error) const;
+    // Переводит ввод игрока в префиксные слова. Если строка начинается с
+    // известной функции и не содержит инфикса, сохраняется старый путь через
+    // wordsFromString; иначе используется expression::normalize.
+    bool prepareExpression(const std::string& raw,
+                           std::vector<std::string>& words,
+                           std::string& error) const;
     // Применяет выражение к настоящему набору; при ошибке набор не меняется.
-    void applyExpression(const std::vector<std::string>& words);
+    void applyExpression(const std::string& raw);
     // Вычисляет выражение на копии набора, не меняя pool_/history_.
-    void calc(const std::vector<std::string>& words);
+    void calc(const std::string& raw);
 
     int turn();  // -1 — выход из уровня
 };

@@ -13,6 +13,7 @@ add_executable(funcmath
   src/main.cpp
   src/Helper.cpp
   src/Functions.cpp
+  src/Expression.cpp
   src/Function.cpp
   src/LevelStore.cpp
   src/Level.cpp

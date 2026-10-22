@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "Expression.h"
 #include "Helper.h"
 
 namespace {
@@ -198,7 +199,11 @@ bool parseBindingLine(const std::string& raw, Binding& out, std::string& error) 
     }
     out = Binding{};
     out.targets = helper::wordsFromString(left);
+    // rhs пока остаётся старым префиксным разбором. Инфикс нормализуется
+    // позже, когда известны все функции уровня: иначе нельзя отличить
+    // префиксный вызов sum 1 2 от переменной a в выражении a - b.
     out.rhs = helper::wordsFromString(right);
+    out.rawRhs = right;
     out.source = raw;
     if (out.targets.empty() || out.rhs.empty()) {
         error = "некорректное присваивание: " + raw;
@@ -1008,6 +1013,56 @@ bool wordMakesUnstable(const std::string& word, const FunctionOverload& overload
     return false;
 }
 
+bool isPrefixFormName(const std::string& name, const FunctionOverload& overload,
+                      const std::vector<Fn>& functions) {
+    // Имена, которые старый префиксный парсер умеет читать в начале
+    // выражения: специальные формы, алиасы, функции уровня и встроенные.
+    if (isReservedLocalName(name)) return true;
+    if (findAlias(overload, name) != nullptr) return true;
+    if (findFn(functions, name) != nullptr) return true;
+    return fmath::hasFunction(name);
+}
+
+bool normalizeBodyExpressions(std::vector<Fn>& custom,
+                              const std::vector<Fn>& functions,
+                              std::string& error) {
+    // Тела функций разбираются до того, как становятся известны все
+    // пользовательские функции. Поэтому инфикс нормализуется вторым проходом:
+    // к этому моменту можно отличить префиксный вызов sum 1 2 от переменной
+    // a в выражении a - b.
+    for (Fn& function : custom) {
+        for (auto& overload : function.overloads) {
+            for (Binding& binding : overload->body) {
+                const std::string text = trim(binding.rawRhs);
+                if (text.empty()) continue;
+
+                const std::vector<std::string> firstWords =
+                    helper::wordsFromString(text);
+                const bool prefixForm =
+                    !firstWords.empty() &&
+                    isPrefixFormName(firstWords[0], *overload, functions);
+
+                // Старый префиксный вызов без инфикса и без f(...) не
+                // трогаем: так сохраняются прежние ошибки, отрицательные
+                // литералы и необязательные скобки/запятые.
+                if (prefixForm && !expression::hasInfixOperator(text) &&
+                    !expression::hasCallSyntax(text))
+                    continue;
+
+                std::vector<std::string> normalized;
+                std::string expressionError;
+                if (!expression::normalize(text, normalized, expressionError)) {
+                    error = blockError(overload->source,
+                                       "body: " + expressionError);
+                    return false;
+                }
+                binding.rhs = std::move(normalized);
+            }
+        }
+    }
+    return true;
+}
+
 std::string autoDescription(const Fn& function) {
     if (function.overloads.empty()) return function.name;
     const FunctionOverload& overload = *function.overloads.front();
@@ -1226,6 +1281,11 @@ bool compileFunctionBlocks(const std::vector<FunctionBlock>& blocks,
             }
         }
     }
+
+    // Инфикс в body нормализуем после проверки имён: теперь известны все
+    // функции и алиасы, поэтому можно выбрать между старым префиксом и новым
+    // разбором.
+    if (!normalizeBodyExpressions(custom, functions, error)) return false;
 
     // Стабильность зависит от вызываемых функций. Изначально все
     // пользовательские функции считаются стабильными; затем распространяем

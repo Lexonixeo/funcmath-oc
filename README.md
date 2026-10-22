@@ -34,10 +34,11 @@
 - **Имена чисел.** Число в наборе может иметь метку (`number natural 3 as x`);
   её можно вводить вместо значения.
 
-Выражения записываются в префиксной форме без скобок и запятых: `func a b`
-(например `sum 1 3`). Аргументы могут быть вложенными: `sum 1 sum 2 3`.
-Некоторые функции унарные или возвращают несколько результатов — например,
-`primes 30` даёт `2 3 5`.
+Выражения можно писать в привычной инфиксной форме: `1 + 2`,
+`(1 + 2) * 3`, `sum(1, 2) + 3`. Старая префиксная запись `func a b` тоже
+работает; аргументы могут быть вложенными: `sum 1 sum 2 3`. Некоторые функции
+унарные или возвращают несколько результатов — например, `primes 30` даёт
+`2 3 5`.
 
 Игра также помогает осваивать тему №19 ЕГЭ (теория чисел): остатки, делимость,
 НОД/НОК, разложение на множители. Идеи развития в этом направлении — в
@@ -49,7 +50,7 @@
 |------|---------|
 | `src/` | исходники игры (C++17) |
 | `data/functions.txt` | описания функций |
-| `data/levels/` | 79 уровней в текстовом формате `.lvl` |
+| `data/levels/` | 85 уровней в текстовом формате `.lvl` |
 | `data/functions/` | пользовательские `.fn`-функции (создаются при сохранении) |
 | `data/players/`, `data/lvlrate.dat` | сохранения и оценки (создаются при игре) |
 | `CMakeLists.txt`, `build.bat` | сборка |
@@ -68,9 +69,9 @@
 
 ```sh
 g++ -std=c++17 -Wall -Wextra -O2 -o funcmath \
-    src/Helper.cpp src/Functions.cpp src/Function.cpp src/LevelStore.cpp \
-    src/Level.cpp src/Solver.cpp src/LevelGenerator.cpp src/Player.cpp \
-    src/Game.cpp src/main.cpp
+    src/Helper.cpp src/Functions.cpp src/Expression.cpp src/Function.cpp \
+    src/LevelStore.cpp src/Level.cpp src/Solver.cpp src/LevelGenerator.cpp \
+    src/Player.cpp src/Game.cpp src/main.cpp
 ./funcmath
 ```
 

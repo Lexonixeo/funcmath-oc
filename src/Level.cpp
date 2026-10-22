@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "Expression.h"
 #include "Helper.h"
 #include "Solver.h"
 
@@ -81,15 +82,6 @@ std::string formatItem(const PoolItem& item, bool showType) {
     std::string result;
     if (!item.name.empty()) result += item.name + "=";
     result += formatValue(item.value, showType);
-    return result;
-}
-
-std::string joinWords(const std::vector<std::string>& words, std::size_t from = 0) {
-    std::string result;
-    for (std::size_t i = from; i < words.size(); ++i) {
-        if (!result.empty()) result += " ";
-        result += words[i];
-    }
     return result;
 }
 
@@ -189,16 +181,22 @@ void Level::printHeader() const {
 void Level::printTutorial() {
     std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
               << std::endl;
-    std::cout << "Запись выражения: func a b    / например, sum 1 3." << std::endl;
+    std::cout << "Префиксная запись: func a b, например sum 1 3." << std::endl;
+    std::cout << "Инфиксная запись: 1 + 3, (1 + 2) * 3, sum(1, 3) + 4." << std::endl;
+    std::cout << "Операторы + - * / % ** используют sum/sub/mul/div/mod/pow, если они есть в уровне."
+              << std::endl;
     std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
+    std::cout << "В инфиксном выражении вызов функции пишется со скобками: f(1, 2)."
+              << std::endl;
+    std::cout << "Не смешивайте в одном выражении префиксный вызов и инфикс."
+              << std::endl;
     std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
               << std::endl;
     std::cout << "Если тип числа неоднозначен, пишите natural=2 или integer=2."
               << std::endl;
-    std::cout << "Имена чисел можно использовать вместо значений: n2=2 -> n2."
+    std::cout << "Имена чисел можно использовать вместо значений: n2."
               << std::endl;
-    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n"
-              << std::endl;
+    std::cout << std::endl;
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
@@ -211,16 +209,22 @@ void Level::printTutorial() {
 void Level::printHelp() {
     std::cout << "Функция забирает из набора свои аргументы и добавляет результаты."
               << std::endl;
-    std::cout << "Запись выражения: func a b    / например, sum 1 3." << std::endl;
+    std::cout << "Префиксная запись: func a b, например sum 1 3." << std::endl;
+    std::cout << "Инфиксная запись: 1 + 3, (1 + 2) * 3, sum(1, 3) + 4." << std::endl;
+    std::cout << "Операторы + - * / % ** используют sum/sub/mul/div/mod/pow, если они есть в уровне."
+              << std::endl;
     std::cout << "Аргументы могут быть вложенными: sum 1 sum 2 3." << std::endl;
+    std::cout << "В инфиксном выражении вызов функции пишется со скобками: f(1, 2)."
+              << std::endl;
+    std::cout << "Не смешивайте в одном выражении префиксный вызов и инфикс."
+              << std::endl;
     std::cout << "У некоторых функций один аргумент или несколько результатов (primes)."
               << std::endl;
     std::cout << "Если тип числа неоднозначен, пишите natural=2 или integer=2."
               << std::endl;
     std::cout << "Имена чисел можно использовать вместо значений: n2."
               << std::endl;
-    std::cout << "Обратите внимание: скобки и запятые в выражении должны отсутствовать.\n"
-              << std::endl;
+    std::cout << std::endl;
     std::cout << "Введите help, чтобы узнать полный список команд." << std::endl;
     std::cout << "Введите clear, чтобы очистить экран от лишних выражений." << std::endl;
     std::cout << "Введите nums, чтобы узнать текущий набор чисел." << std::endl;
@@ -392,13 +396,48 @@ bool Level::evalExpression(const std::vector<std::string>& words, std::size_t& p
     return true;
 }
 
-void Level::applyExpression(const std::vector<std::string>& words) {
+bool Level::prepareExpression(const std::string& raw,
+                              std::vector<std::string>& words,
+                              std::string& error) const {
+    // Совместимость важнее единообразия: старые префиксные строки должны
+    // разбираться ровно как раньше. Новый парсер включается только тогда,
+    // когда строка не может быть старым префиксным выражением:
+    //   * она начинается не с функции;
+    //   * в ней есть бинарный инфиксный оператор;
+    //   * она содержит вызов f(...) без пробела перед скобкой.
+    const std::string text = helper::trim(raw);
+    if (text.empty()) {
+        error = "Пустое выражение.";
+        return false;
+    }
+
+    std::vector<std::string> firstWords = helper::wordsFromString(text);
+    const bool prefixCandidate =
+        !firstWords.empty() && !firstWords[0].empty() &&
+        findFunction(firstWords[0]) != nullptr;
+
+    if (!prefixCandidate || expression::hasInfixOperator(text) ||
+        expression::hasCallSyntax(text)) {
+        if (!expression::normalize(text, words, error)) return false;
+    } else {
+        words = helper::wordsFromString(text);
+    }
+    return true;
+}
+
+void Level::applyExpression(const std::string& raw) {
     // Работаем с копией: если разбор/вычисление упадут, pool_ останется
     // прежним. Изменения фиксируются только после проверки pos == size.
+    std::vector<std::string> words;
+    std::string error;
+    if (!prepareExpression(raw, words, error)) {
+        std::cout << "= " << error << std::endl;
+        return;
+    }
+
     std::vector<PoolItem> pool = pool_;
     std::size_t pos = 0;
     std::vector<Num> result;
-    std::string error;
     if (!evalExpression(words, pos, true, pool, defaultType(valuesOf(pool_)), result,
                         error)) {
         std::cout << "= " << error << std::endl;
@@ -427,7 +466,8 @@ void Level::applyExpression(const std::vector<std::string>& words) {
         std::cout << " " << formatItem(item, showTypes);
     std::cout << ")" << std::endl;
 
-    std::string record = joinWords(words) + " =";
+    // В историю пишем то, что ввёл игрок, а не нормализованный префикс.
+    std::string record = helper::trim(raw) + " =";
     if (result.empty()) {
         record += " (пусто)";
     } else {
@@ -441,13 +481,19 @@ void Level::applyExpression(const std::vector<std::string>& words) {
     stack_.push_back(pool_);
 }
 
-void Level::calc(const std::vector<std::string>& words) {
+void Level::calc(const std::string& raw) {
     // calc повторяет разбор, но с consumeFromSet=false: имена читаются из
     // копии, литералы создаются, а настоящий набор не меняется.
-    std::size_t pos = 1;
+    std::vector<std::string> words;
+    std::string error;
+    if (!prepareExpression(raw, words, error)) {
+        std::cout << "= " << error << std::endl;
+        return;
+    }
+
+    std::size_t pos = 0;
     std::vector<PoolItem> pool = pool_;
     std::vector<Num> result;
-    std::string error;
     if (!evalExpression(words, pos, false, pool, defaultType(valuesOf(pool_)), result,
                         error)) {
         std::cout << "= " << error << std::endl;
@@ -519,8 +565,9 @@ int Level::turn() {
         std::cout << std::endl;
         return -1;
     }
-    std::vector<std::string> words = helper::wordsFromString(line);
-    if (words.empty()) return 0;
+    const std::string text = helper::trim(line);
+    if (text.empty()) return 0;
+    std::vector<std::string> words = helper::wordsFromString(text);
     const std::string& first = words[0];
 
     if (first.empty()) {
@@ -541,17 +588,19 @@ int Level::turn() {
     } else if (first == "hint") {
         hint();
     } else if (first == "calc") {
-        if (words.size() < 2) {
+        const std::string rest =
+            text.size() > first.size() ? helper::trim(text.substr(first.size())) : "";
+        if (rest.empty()) {
             std::cout << "= Недостаточно аргументов! Введите выражение заново." << std::endl;
         } else {
-            calc(words);
+            calc(rest);
         }
     } else if (first == "back") {
         goBack();
-    } else if (findFunction(first) == nullptr) {
-        std::cout << "= Такой функции/команды у нас нет :( Введите help, чтобы вспомнить существующие команды." << std::endl;
     } else {
-        applyExpression(words);
+        // Любая другая строка — выражение. Оно может начинаться с функции
+        // (старый префикс), числа, имени или открывающей скобки (инфикс).
+        applyExpression(text);
     }
     return 0;
 }
